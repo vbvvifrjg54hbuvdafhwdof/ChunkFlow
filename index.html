@@ -285,15 +285,31 @@
 
   <!-- アプリJSロジック -->
   <script>
-    // PWA Service Worker 登録
-    if ('serviceWorker' in navigator) {
-      const swCode = `
-        self.addEventListener('install', (e) => self.skipWaiting());
-        self.addEventListener('activate', (e) => self.clients.claim());
-        self.addEventListener('fetch', (e) => e.respondWith(fetch(e.request)));
-      `;
-      const blob = new Blob([swCode], { type: 'application/javascript' });
-      navigator.serviceWorker.register(URL.createObjectURL(blob)).catch(() => {});
+    // 安全な LocalStorage 読み書きヘルパー（エラーで絶対クラッシュさせない）
+    function safeGetStorage(key) {
+      try {
+        return localStorage.getItem(key);
+      } catch (e) {
+        return null;
+      }
+    }
+    function safeSetStorage(key, value) {
+      try {
+        localStorage.setItem(key, value);
+      } catch (e) {}
+    }
+
+    // PWA Service Worker 登録（Web/httpアクセス時のみ安全実行）
+    if (window.location.protocol.startsWith('http') && 'serviceWorker' in navigator) {
+      try {
+        const swCode = `
+          self.addEventListener('install', (e) => self.skipWaiting());
+          self.addEventListener('activate', (e) => self.clients.claim());
+          self.addEventListener('fetch', (e) => e.respondWith(fetch(e.request)));
+        `;
+        const blob = new Blob([swCode], { type: 'application/javascript' });
+        navigator.serviceWorker.register(URL.createObjectURL(blob)).catch(() => {});
+      } catch (e) {}
     }
 
     // PWA インストールプロンプト制御
@@ -305,7 +321,7 @@
       if (installBtn) installBtn.classList.remove('hidden');
     });
 
-    // フォルダID一致判定（null, "", undefined をすべて同じ「ルート」として柔軟に同値比較）
+    // フォルダID一致判定（null, "", undefined をすべて「ルート」として安全に統一判定）
     function isSameFolder(id1, id2) {
       const norm1 = (!id1) ? null : id1;
       const norm2 = (!id2) ? null : id2;
@@ -350,4 +366,448 @@
               { "en": "However,", "is_important": true, "ja": "しかしながら、" },
               { "en": "history shows", "is_important": false, "ja": "歴史が示しているのは" },
               { "en": "that technological revolutions", "is_important": false, "ja": "技術革命が" },
-              { "
+              { "en": "usually create new types of jobs", "is_important": false, "ja": "通常、新しい種類の仕事を生み出すということだ" },
+              { "en": "while destroying old ones.", "is_important": true, "ja": "古いものを破壊する一方で。" }
+            ]
+          },
+          {
+            "sentence_id": 4,
+            "chunks": [
+              { "en": "For instance,", "is_important": true, "ja": "例えば、" },
+              { "en": "while traditional manufacturing jobs have declined,", "is_important": true, "ja": "従来の製造業の仕事が減少した一方で、" },
+              { "en": "demand for software engineers and data analysts", "is_important": false, "ja": "ソフトウェアエンジニアやデータアナリストの需要は" },
+              { "en": "has skyrocketed.", "is_important": false, "ja": "急増した。" }
+            ]
+          },
+          {
+            "sentence_id": 5,
+            "chunks": [
+              { "en": "In addition,", "is_important": true, "ja": "さらに、" },
+              { "en": "lifelong learning will become essential", "is_important": false, "ja": "生涯学習が不可欠になるだろう" },
+              { "en": "for workers.", "is_important": false, "ja": "労働者にとって。" }
+            ]
+          }
+        ]
+      }
+    ];
+
+    let folders = [];
+    let texts = [];
+    let currentTextId = null;
+    let targetParentFolderId = null;
+    let deleteTarget = null;
+    let expandedFolderIds = new Set();
+    let isTreeInit = false;
+    let lastFolderId = "";
+
+    let config = {
+      showSlash: true,
+      showHighlight: true,
+      transMode: 'tap',
+      isRaw: false
+    };
+    let tappedChunks = {};
+
+    document.addEventListener('DOMContentLoaded', () => {
+      // 安全なデータ読み込み
+      try {
+        lastFolderId = safeGetStorage('chunk_reader_last_folder_v5') || "";
+        const storedFolders = safeGetStorage('chunk_reader_folders_v5');
+        const storedTexts = safeGetStorage('chunk_reader_texts_v5');
+
+        if (storedFolders && storedTexts) {
+          folders = JSON.parse(storedFolders);
+          texts = JSON.parse(storedTexts);
+        }
+      } catch (e) {
+        folders = [];
+        texts = [];
+      }
+
+      // データが空の場合はデフォルトサンプルデータで復元
+      if (!Array.isArray(folders) || folders.length === 0 || !Array.isArray(texts) || texts.length === 0) {
+        folders = JSON.parse(JSON.stringify(SAMPLE_FOLDERS));
+        texts = JSON.parse(JSON.stringify(SAMPLE_TEXTS));
+        saveToLocalStorage();
+      }
+
+      if (texts.length > 0) currentTextId = texts[0].id;
+
+      setupEventListeners();
+      updateToggleStyles();
+      renderTree();
+      switchView('reader');
+    });
+
+    function saveToLocalStorage() {
+      safeSetStorage('chunk_reader_folders_v5', JSON.stringify(folders));
+      safeSetStorage('chunk_reader_texts_v5', JSON.stringify(texts));
+    }
+
+    function switchView(viewName) {
+      document.getElementById('view-reader').classList.toggle('hidden', viewName !== 'reader');
+      document.getElementById('view-library').classList.toggle('hidden', viewName !== 'library');
+      document.getElementById('view-import').classList.toggle('hidden', viewName !== 'import');
+
+      document.getElementById('toolbar-controls').style.display = (viewName === 'reader') ? 'flex' : 'none';
+
+      const navs = {
+        reader: document.getElementById('nav-reader'),
+        library: document.getElementById('nav-library'),
+        import: document.getElementById('nav-import')
+      };
+
+      Object.keys(navs).forEach(key => {
+        if (key === viewName) {
+          navs[key].className = "flex flex-col items-center gap-0.5 text-indigo-600 font-bold transition";
+        } else {
+          navs[key].className = "flex flex-col items-center gap-0.5 text-slate-400 hover:text-slate-700 transition font-normal";
+        }
+      });
+
+      if (viewName === 'reader') renderReader();
+      if (viewName === 'library') renderTree();
+      if (viewName === 'import') renderFolderSelectOptions();
+    }
+
+    function setupEventListeners() {
+      const pwaBtn = document.getElementById('btn-pwa-install');
+      if (pwaBtn) {
+        pwaBtn.onclick = async () => {
+          if (deferredPrompt) {
+            deferredPrompt.prompt();
+            const { outcome } = await deferredPrompt.userChoice;
+            if (outcome === 'accepted') {
+              pwaBtn.classList.add('hidden');
+            }
+            deferredPrompt = null;
+          }
+        };
+      }
+
+      document.getElementById('nav-reader').onclick = () => switchView('reader');
+      document.getElementById('nav-library').onclick = () => switchView('library');
+      document.getElementById('nav-import').onclick = () => switchView('import');
+      document.getElementById('btn-cancel-import').onclick = () => switchView('reader');
+
+      document.getElementById('btn-add-root-folder').onclick = () => openFolderModal(null);
+      document.getElementById('btn-cancel-folder').onclick = closeFolderModal;
+      document.getElementById('btn-save-folder').onclick = handleSaveFolder;
+
+      document.getElementById('btn-export-data').onclick = handleExportData;
+      document.getElementById('btn-import-data').onclick = () => document.getElementById('file-input-backup').click();
+      document.getElementById('file-input-backup').onchange = handleImportBackupFile;
+
+      document.getElementById('import-folder-select').onchange = (e) => {
+        lastFolderId = e.target.value;
+        safeSetStorage('chunk_reader_last_folder_v5', lastFolderId);
+      };
+
+      document.getElementById('btn-paste-clipboard').onclick = async () => {
+        try {
+          const text = await navigator.clipboard.readText();
+          document.getElementById('import-json').value = text;
+        } catch (err) {
+          alert('クリップボードの読み取りに対応していません。手動で貼り付けてください。');
+        }
+      };
+
+      document.getElementById('toggle-slash').onclick = () => {
+        config.showSlash = !config.showSlash;
+        updateToggleStyles();
+        renderReader();
+      };
+
+      document.getElementById('toggle-highlight').onclick = () => {
+        config.showHighlight = !config.showHighlight;
+        updateToggleStyles();
+        renderReader();
+      };
+
+      document.getElementById('toggle-raw').onclick = () => {
+        config.isRaw = !config.isRaw;
+        updateToggleStyles();
+        renderReader();
+      };
+
+      ['tap', 'all', 'none'].forEach(mode => {
+        document.getElementById(`mode-${mode}`).onclick = () => {
+          config.transMode = mode;
+          tappedChunks = {};
+          updateToggleStyles();
+          renderReader();
+        };
+      });
+
+      document.getElementById('btn-save-import').onclick = handleSaveImport;
+
+      document.getElementById('btn-open-delete').onclick = () => {
+        const activeText = texts.find(t => t.id === currentTextId);
+        if (!activeText) return;
+        deleteTarget = { type: 'text', id: activeText.id };
+        document.getElementById('delete-modal-heading').textContent = "文章を削除しますか？";
+        document.getElementById('delete-target-title').textContent = `「${activeText.title}」`;
+        document.getElementById('modal-delete').classList.remove('hidden');
+      };
+
+      document.getElementById('btn-cancel-delete').onclick = () => document.getElementById('modal-delete').classList.add('hidden');
+      document.getElementById('btn-confirm-delete').onclick = handleConfirmDelete;
+    }
+
+    function updateToggleStyles() {
+      const slashBtn = document.getElementById('toggle-slash');
+      slashBtn.className = config.showSlash
+        ? "flex-shrink-0 px-2.5 py-1 rounded-lg text-xs font-semibold transition flex items-center gap-1 bg-white border border-indigo-200 text-indigo-700 shadow-sm"
+        : "flex-shrink-0 px-2.5 py-1 rounded-lg text-xs font-semibold transition flex items-center gap-1 border border-slate-200 text-slate-400";
+
+      const hlBtn = document.getElementById('toggle-highlight');
+      hlBtn.className = config.showHighlight
+        ? "flex-shrink-0 px-2.5 py-1 rounded-lg text-xs font-semibold transition flex items-center gap-1 bg-white border border-rose-200 text-rose-700 shadow-sm"
+        : "flex-shrink-0 px-2.5 py-1 rounded-lg text-xs font-semibold transition flex items-center gap-1 border border-slate-200 text-slate-400";
+
+      const rawBtn = document.getElementById('toggle-raw');
+      rawBtn.className = config.isRaw
+        ? "flex-shrink-0 px-2.5 py-1 rounded-lg text-xs font-semibold transition flex items-center gap-1 bg-emerald-500 text-white shadow-sm"
+        : "flex-shrink-0 px-2.5 py-1 rounded-lg text-xs font-semibold transition flex items-center gap-1 border border-slate-200 text-slate-600";
+
+      ['tap', 'all', 'none'].forEach(mode => {
+        const btn = document.getElementById(`mode-${mode}`);
+        if (config.transMode === mode) {
+          btn.className = "px-2 py-0.5 rounded-md transition bg-white text-indigo-600 font-bold shadow-sm";
+        } else {
+          btn.className = "px-2 py-0.5 rounded-md transition text-slate-500 font-medium";
+        }
+      });
+    }
+
+    function renderTree() {
+      const container = document.getElementById('tree-container');
+      container.innerHTML = '';
+
+      if (!isTreeInit && folders.length > 0) {
+        folders.forEach(f => expandedFolderIds.add(f.id));
+        isTreeInit = true;
+      }
+
+      function buildFolderTree(parentId, level) {
+        const ul = document.createElement('ul');
+        ul.className = level > 0 ? "pl-4 ml-3 border-l-2 border-slate-200/80 space-y-1 my-1" : "space-y-1";
+
+        const subFolders = folders.filter(f => isSameFolder(f.parentId, parentId));
+        subFolders.forEach(f => {
+          const li = document.createElement('li');
+          const isExpanded = expandedFolderIds.has(f.id);
+
+          const childTextCount = texts.filter(t => isSameFolder(t.folderId, f.id)).length;
+          const childFolderCount = folders.filter(sub => isSameFolder(sub.parentId, f.id)).length;
+          const totalItems = childTextCount + childFolderCount;
+
+          const folderHeader = document.createElement('div');
+          folderHeader.className = "flex items-center justify-between p-2.5 rounded-xl text-slate-700 bg-slate-100/80 hover:bg-slate-200/60 font-semibold cursor-pointer transition select-none group";
+          
+          folderHeader.innerHTML = `
+            <div class="flex items-center gap-2 truncate">
+              <i class="fa-solid ${isExpanded ? 'fa-chevron-down' : 'fa-chevron-right'} text-slate-400 text-xs w-3"></i>
+              <i class="fa-solid ${isExpanded ? 'fa-folder-open text-amber-500' : 'fa-folder text-amber-400'} text-base"></i>
+              <span class="truncate text-sm text-slate-800 font-bold">${f.name}</span>
+              <span class="text-[10px] font-medium text-slate-400 bg-white/80 px-2 py-0.5 rounded-full border border-slate-200/60">${totalItems}件</span>
+            </div>
+            <div class="flex items-center gap-1">
+              <button title="サブフォルダ追加" class="btn-add-sub p-1.5 text-slate-400 hover:text-indigo-600 hover:bg-white rounded-lg transition"><i class="fa-solid fa-plus text-xs"></i></button>
+              <button title="フォルダ削除" class="btn-del-folder p-1.5 text-slate-400 hover:text-rose-600 hover:bg-white rounded-lg transition"><i class="fa-solid fa-trash-can text-xs"></i></button>
+            </div>
+          `;
+
+          folderHeader.onclick = (e) => {
+            if (expandedFolderIds.has(f.id)) {
+              expandedFolderIds.delete(f.id);
+            } else {
+              expandedFolderIds.add(f.id);
+            }
+            renderTree();
+          };
+
+          folderHeader.querySelector('.btn-add-sub').onclick = (e) => {
+            e.stopPropagation();
+            openFolderModal(f.id);
+          };
+
+          folderHeader.querySelector('.btn-del-folder').onclick = (e) => {
+            e.stopPropagation();
+            deleteTarget = { type: 'folder', id: f.id };
+            document.getElementById('delete-modal-heading').textContent = "フォルダを削除しますか？";
+            document.getElementById('delete-target-title').textContent = `「${f.name}」とその中身の全データ`;
+            document.getElementById('modal-delete').classList.remove('hidden');
+          };
+
+          li.appendChild(folderHeader);
+
+          if (isExpanded) {
+            li.appendChild(buildFolderTree(f.id, level + 1));
+          }
+          ul.appendChild(li);
+        });
+
+        const childTexts = texts.filter(t => isSameFolder(t.folderId, parentId));
+        childTexts.forEach(t => {
+          const li = document.createElement('li');
+          const isActive = t.id === currentTextId;
+          li.className = `p-2 px-3 rounded-xl cursor-pointer transition flex items-center justify-between gap-2.5 group ${
+            isActive ? 'bg-indigo-600 text-white font-bold shadow-sm shadow-indigo-200' : 'text-slate-700 hover:bg-slate-100/80 bg-white border border-slate-200/50'
+          }`;
+          
+          li.innerHTML = `
+            <div class="flex items-center gap-2.5 truncate flex-1 min-w-0">
+              <i class="fa-regular fa-file-lines ${isActive ? 'text-indigo-200' : 'text-slate-400'} text-xs flex-shrink-0"></i>
+              <span class="truncate text-xs md:text-sm font-medium tracking-tight">${t.title}</span>
+            </div>
+            <button title="文章を削除" class="btn-del-text p-1 px-1.5 rounded-lg transition ${
+              isActive ? 'text-indigo-200 hover:text-white hover:bg-indigo-700' : 'text-slate-400 hover:text-rose-600 hover:bg-slate-100'
+            }">
+              <i class="fa-solid fa-trash-can text-xs"></i>
+            </button>
+          `;
+
+          li.onclick = (e) => {
+            currentTextId = t.id;
+            tappedChunks = {};
+            renderTree();
+            switchView('reader');
+          };
+
+          li.querySelector('.btn-del-text').onclick = (e) => {
+            e.stopPropagation();
+            deleteTarget = { type: 'text', id: t.id };
+            document.getElementById('delete-modal-heading').textContent = "文章を削除しますか？";
+            document.getElementById('delete-target-title').textContent = `「${t.title}」`;
+            document.getElementById('modal-delete').classList.remove('hidden');
+          };
+
+          ul.appendChild(li);
+        });
+
+        return ul;
+      }
+
+      container.appendChild(buildFolderTree(null, 0));
+    }
+
+    function renderFolderSelectOptions() {
+      const select = document.getElementById('import-folder-select');
+      select.innerHTML = '<option value="">(ルート / フォルダなし)</option>';
+
+      function addOptions(parentId, prefix) {
+        const sub = folders.filter(f => isSameFolder(f.parentId, parentId));
+        sub.forEach(f => {
+          const opt = document.createElement('option');
+          opt.value = f.id;
+          opt.textContent = prefix + f.name;
+          select.appendChild(opt);
+          addOptions(f.id, prefix + "　");
+        });
+      }
+      addOptions(null, "📂 ");
+
+      if (lastFolderId && folders.some(f => f.id === lastFolderId)) {
+        select.value = lastFolderId;
+      } else {
+        select.value = "";
+      }
+    }
+
+    function getFolderPath(folderId) {
+      if (!folderId) return "ルート";
+      const path = [];
+      let curr = folders.find(f => f.id === folderId);
+      while (curr) {
+        path.unshift(curr.name);
+        curr = folders.find(f => isSameFolder(f.id, curr.parentId));
+      }
+      return path.length > 0 ? path.join(' / ') : "ルート";
+    }
+
+    function renderReader() {
+      try {
+        const activeText = texts.find(t => t.id === currentTextId);
+        const readerContent = document.getElementById('reader-content');
+        const currentTitleEl = document.getElementById('current-title');
+        const headerFolderTag = document.getElementById('header-folder-tag');
+        const emptyState = document.getElementById('empty-state');
+
+        if (!activeText) {
+          currentTitleEl.textContent = "文章がありません";
+          headerFolderTag.textContent = "";
+          readerContent.innerHTML = '';
+          emptyState.classList.remove('hidden');
+          return;
+        }
+
+        emptyState.classList.add('hidden');
+        currentTitleEl.textContent = activeText.title;
+        headerFolderTag.textContent = getFolderPath(activeText.folderId);
+        readerContent.innerHTML = '';
+
+        if (config.isRaw) {
+          const p = document.createElement('p');
+          p.className = "text-slate-800 leading-relaxed font-normal tracking-wide";
+          const fullText = (activeText.data || [])
+            .map(s => (s.chunks || []).map(c => c.en).join(' '))
+            .join(' ');
+          p.textContent = fullText;
+          readerContent.appendChild(p);
+          return;
+        }
+
+        const isNoTrans = config.transMode === 'none';
+        if (isNoTrans) {
+          readerContent.classList.add('mode-no-trans');
+        } else {
+          readerContent.classList.remove('mode-no-trans');
+        }
+
+        (activeText.data || []).forEach((sentence, sIdx) => {
+          const sentenceDiv = document.createElement('div');
+          sentenceDiv.className = "sentence-block";
+
+          (sentence.chunks || []).forEach((chunk, cIdx) => {
+            const chunkKey = `${sIdx}-${cIdx}`;
+            const isLastChunk = cIdx === sentence.chunks.length - 1;
+
+            const chunkWrap = document.createElement('div');
+            chunkWrap.className = "chunk-box chunk-touch cursor-pointer";
+            
+            chunkWrap.onclick = () => {
+              if (config.transMode === 'tap') {
+                tappedChunks[chunkKey] = !tappedChunks[chunkKey];
+                renderReader();
+              }
+            };
+
+            const enSpan = document.createElement('span');
+            enSpan.className = "chunk-en select-none tracking-wide text-slate-800";
+            
+            if (config.showHighlight && chunk.is_important) {
+              const words = (chunk.en || '').split(' ');
+              if (words.length > 0) {
+                const firstWord = words[0];
+                const restWords = words.slice(1).join(' ');
+
+                const redWordSpan = document.createElement('span');
+                redWordSpan.className = "text-rose-600 font-semibold bg-rose-50 px-1 rounded";
+                redWordSpan.textContent = firstWord;
+
+                enSpan.appendChild(redWordSpan);
+                if (restWords) {
+                  enSpan.appendChild(document.createTextNode(' ' + restWords));
+                }
+              } else {
+                enSpan.textContent = chunk.en || '';
+              }
+            } else {
+              enSpan.textContent = chunk.en || '';
+            }
+
+            chunkWrap.appendChild(enSpan);
+
+            let showJa = false;
+            if (config.transMode === 'all'
