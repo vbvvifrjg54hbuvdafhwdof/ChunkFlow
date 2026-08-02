@@ -30,7 +30,7 @@
       background-color: #e0e7ff !important;
     }
 
-    /* ★ 英文と和訳を超密着させ、次の英文行を押し下げる見やすさ重視CSS */
+    /* 英文と和訳を超密着させ、次の英文行を押し下げる見やすさ重視CSS */
     .sentence-block {
       display: block !important;
       margin-bottom: 1.2rem !important;
@@ -42,7 +42,7 @@
     .chunk-box {
       position: relative !important;
       display: inline-block !important;
-      max-width: 100% !important; /* ★画面幅を超えないように制限 */
+      max-width: 100% !important; /* 長いチャンクも画面内に収める */
       vertical-align: top !important;
       margin-left: 2px !important;
       margin-right: 2px !important;
@@ -61,7 +61,7 @@
     .chunk-en {
       display: inline-block !important;
       max-width: 100% !important;
-      white-space: normal !important; /* ★画面幅を超える長い英文も画面端で安全に折り返し */
+      white-space: normal !important; /* 長い一節も画面端で安全に折り返し */
       word-break: break-word !important;
       overflow-wrap: break-word !important;
       line-height: 1.2 !important;
@@ -73,7 +73,7 @@
       top: 100% !important;
       left: 0 !important;
       width: 100% !important;
-      margin-top: 1px !important; /* ★英文との距離を1pxに密着 */
+      margin-top: 1px !important; /* 英文との距離を1pxに密着 */
       
       font-size: 0.62rem !important;
       line-height: 1.15 !important;
@@ -349,15 +349,25 @@
     let tappedChunks = {};
 
     document.addEventListener('DOMContentLoaded', () => {
-      const storedFolders = localStorage.getItem('chunk_reader_folders_v5');
-      const storedTexts = localStorage.getItem('chunk_reader_texts_v5');
+      // 安全なデータ読み込み（自己修復機能付き）
+      try {
+        const storedFolders = localStorage.getItem('chunk_reader_folders_v5');
+        const storedTexts = localStorage.getItem('chunk_reader_texts_v5');
 
-      if (storedFolders && storedTexts) {
-        folders = JSON.parse(storedFolders);
-        texts = JSON.parse(storedTexts);
-      } else {
-        folders = SAMPLE_FOLDERS;
-        texts = SAMPLE_TEXTS;
+        if (storedFolders && storedTexts) {
+          folders = JSON.parse(storedFolders);
+          texts = JSON.parse(storedTexts);
+        }
+      } catch (e) {
+        console.error("データ読み込みエラー:", e);
+        folders = [];
+        texts = [];
+      }
+
+      // データが空・破壊されている場合はサンプルデータで自動復元
+      if (!Array.isArray(folders) || folders.length === 0 || !Array.isArray(texts) || texts.length === 0) {
+        folders = JSON.parse(JSON.stringify(SAMPLE_FOLDERS));
+        texts = JSON.parse(JSON.stringify(SAMPLE_TEXTS));
         saveToLocalStorage();
       }
 
@@ -536,4 +546,323 @@
 
         const childTexts = texts.filter(t => t.folderId === parentId);
         childTexts.forEach(t => {
-          const li = document.createElement(
+          const li = document.createElement('li');
+          const isActive = t.id === currentTextId;
+          li.className = `p-2 pl-3 rounded-xl cursor-pointer transition flex items-center gap-2 ${
+            isActive ? 'bg-indigo-50 text-indigo-700 font-bold border border-indigo-100' : 'text-slate-600 active:bg-slate-100'
+          }`;
+          li.innerHTML = `
+            <i class="fa-regular fa-file-lines text-slate-400"></i>
+            <span class="truncate">${t.title}</span>
+          `;
+          li.onclick = () => {
+            currentTextId = t.id;
+            tappedChunks = {};
+            renderTree();
+            switchView('reader');
+          };
+          ul.appendChild(li);
+        });
+
+        return ul;
+      }
+
+      container.appendChild(buildFolderTree(null, 0));
+    }
+
+    function renderFolderSelectOptions() {
+      const select = document.getElementById('import-folder-select');
+      select.innerHTML = '<option value="">(ルート / フォルダなし)</option>';
+
+      function addOptions(parentId, prefix) {
+        const sub = folders.filter(f => f.parentId === parentId);
+        sub.forEach(f => {
+          const opt = document.createElement('option');
+          opt.value = f.id;
+          opt.textContent = prefix + f.name;
+          select.appendChild(opt);
+          addOptions(f.id, prefix + "　");
+        });
+      }
+      addOptions(null, "📂 ");
+    }
+
+    function getFolderPath(folderId) {
+      if (!folderId) return "ルート";
+      const path = [];
+      let curr = folders.find(f => f.id === folderId);
+      while (curr) {
+        path.unshift(curr.name);
+        curr = folders.find(f => f.id === curr.parentId);
+      }
+      return path.join(' / ');
+    }
+
+    function renderReader() {
+      const activeText = texts.find(t => t.id === currentTextId);
+      const readerContent = document.getElementById('reader-content');
+      const currentTitleEl = document.getElementById('current-title');
+      const headerFolderTag = document.getElementById('header-folder-tag');
+      const emptyState = document.getElementById('empty-state');
+
+      if (!activeText) {
+        currentTitleEl.textContent = "文章がありません";
+        headerFolderTag.textContent = "";
+        readerContent.innerHTML = '';
+        emptyState.classList.remove('hidden');
+        return;
+      }
+
+      emptyState.classList.add('hidden');
+      currentTitleEl.textContent = activeText.title;
+      headerFolderTag.textContent = getFolderPath(activeText.folderId);
+      readerContent.innerHTML = '';
+
+      // 白文モード
+      if (config.isRaw) {
+        const p = document.createElement('p');
+        p.className = "text-slate-800 leading-relaxed font-normal tracking-wide";
+        const fullText = activeText.data
+          .map(s => s.chunks.map(c => c.en).join(' '))
+          .join(' ');
+        p.textContent = fullText;
+        readerContent.appendChild(p);
+        return;
+      }
+
+      // 和訳表示モード判定（クラス付与で余白を自動コントロール）
+      const isNoTrans = config.transMode === 'none';
+      if (isNoTrans) {
+        readerContent.classList.add('mode-no-trans');
+      } else {
+        readerContent.classList.remove('mode-no-trans');
+      }
+
+      activeText.data.forEach((sentence, sIdx) => {
+        const sentenceDiv = document.createElement('div');
+        sentenceDiv.className = "sentence-block";
+
+        sentence.chunks.forEach((chunk, cIdx) => {
+          const chunkKey = `${sIdx}-${cIdx}`;
+          const isLastChunk = cIdx === sentence.chunks.length - 1;
+
+          // チャンク外枠
+          const chunkWrap = document.createElement('div');
+          chunkWrap.className = "chunk-box chunk-touch cursor-pointer";
+          
+          chunkWrap.onclick = () => {
+            if (config.transMode === 'tap') {
+              tappedChunks[chunkKey] = !tappedChunks[chunkKey];
+              renderReader();
+            }
+          };
+
+          const enSpan = document.createElement('span');
+          enSpan.className = "chunk-en select-none tracking-wide text-slate-800";
+          
+          // 1単語目だけ赤字化
+          if (config.showHighlight && chunk.is_important) {
+            const words = chunk.en.split(' ');
+            if (words.length > 0) {
+              const firstWord = words[0];
+              const restWords = words.slice(1).join(' ');
+
+              const redWordSpan = document.createElement('span');
+              redWordSpan.className = "text-rose-600 font-semibold bg-rose-50 px-1 rounded";
+              redWordSpan.textContent = firstWord;
+
+              enSpan.appendChild(redWordSpan);
+              if (restWords) {
+                enSpan.appendChild(document.createTextNode(' ' + restWords));
+              }
+            } else {
+              enSpan.textContent = chunk.en;
+            }
+          } else {
+            enSpan.textContent = chunk.en;
+          }
+
+          chunkWrap.appendChild(enSpan);
+
+          // 和訳制御（1pxピタッと英文直下に吸着）
+          let showJa = false;
+          if (config.transMode === 'all') showJa = true;
+          if (config.transMode === 'tap' && tappedChunks[chunkKey]) showJa = true;
+
+          if (showJa && chunk.ja) {
+            const jaSpan = document.createElement('span');
+            jaSpan.className = "chunk-ja";
+            jaSpan.textContent = chunk.ja;
+            chunkWrap.appendChild(jaSpan);
+          }
+
+          sentenceDiv.appendChild(chunkWrap);
+
+          // スラッシュ記号
+          if (config.showSlash && !isLastChunk) {
+            const slashSpan = document.createElement('span');
+            slashSpan.className = "slash-mark";
+            slashSpan.textContent = "/";
+            sentenceDiv.appendChild(slashSpan);
+          }
+        });
+
+        readerContent.appendChild(sentenceDiv);
+      });
+    }
+
+    function openFolderModal(parentId) {
+      targetParentFolderId = parentId;
+      document.getElementById('modal-folder-title').textContent = parentId ? "サブフォルダを追加" : "新しいフォルダを追加";
+      document.getElementById('folder-name-input').value = '';
+      document.getElementById('modal-folder').classList.remove('hidden');
+    }
+
+    function closeFolderModal() {
+      document.getElementById('modal-folder').classList.add('hidden');
+    }
+
+    function handleSaveFolder() {
+      const name = document.getElementById('folder-name-input').value.trim();
+      if (!name) return;
+
+      const newFolder = {
+        id: "f-" + Date.now(),
+        name: name,
+        parentId: targetParentFolderId
+      };
+
+      folders.push(newFolder);
+      saveToLocalStorage();
+      closeFolderModal();
+      renderTree();
+    }
+
+    function handleSaveImport() {
+      const errorEl = document.getElementById('import-error');
+      errorEl.classList.add('hidden');
+
+      const jsonStr = document.getElementById('import-json').value.trim();
+      let titleStr = document.getElementById('import-title').value.trim();
+      const folderId = document.getElementById('import-folder-select').value || null;
+
+      if (!jsonStr) {
+        showError('JSONコードが入力されていません。');
+        return;
+      }
+
+      try {
+        const parsed = JSON.parse(jsonStr);
+
+        if (!Array.isArray(parsed) || parsed.length === 0 || !parsed[0].chunks) {
+          throw new Error('LLMのフォーマットと異なります。');
+        }
+
+        if (!titleStr) titleStr = `英文テキスト ${texts.length + 1}`;
+
+        const newText = {
+          id: "text-" + Date.now(),
+          folderId: folderId,
+          title: titleStr,
+          data: parsed
+        };
+
+        texts.push(newText);
+        currentTextId = newText.id;
+        saveToLocalStorage();
+
+        document.getElementById('import-title').value = '';
+        document.getElementById('import-json').value = '';
+        renderTree();
+        switchView('reader');
+
+      } catch (err) {
+        showError('JSONの解析に失敗しました。ChatGPT等の出力をそのまま貼り付けてください。');
+      }
+    }
+
+    function showError(msg) {
+      const errorEl = document.getElementById('import-error');
+      errorEl.textContent = msg;
+      errorEl.classList.remove('hidden');
+    }
+
+    function handleConfirmDelete() {
+      if (!deleteTarget) return;
+
+      if (deleteTarget.type === 'text') {
+        texts = texts.filter(t => t.id !== deleteTarget.id);
+        if (currentTextId === deleteTarget.id) {
+          currentTextId = texts.length > 0 ? texts[0].id : null;
+        }
+      } else if (deleteTarget.type === 'folder') {
+        const folderIdsToDelete = [deleteTarget.id];
+        function collectChildren(fid) {
+          const subs = folders.filter(f => f.parentId === fid);
+          subs.forEach(s => {
+            folderIdsToDelete.push(s.id);
+            collectChildren(s.id);
+          });
+        }
+        collectChildren(deleteTarget.id);
+
+        folders = folders.filter(f => !folderIdsToDelete.includes(f.id));
+        texts = texts.filter(t => !folderIdsToDelete.includes(t.folderId));
+
+        if (!texts.find(t => t.id === currentTextId)) {
+          currentTextId = texts.length > 0 ? texts[0].id : null;
+        }
+      }
+
+      saveToLocalStorage();
+      document.getElementById('modal-delete').classList.add('hidden');
+      deleteTarget = null;
+      renderTree();
+      renderReader();
+    }
+
+    function handleExportData() {
+      const backupData = {
+        version: "5.0",
+        exportDate: new Date().toISOString(),
+        folders: folders,
+        texts: texts
+      };
+
+      const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(backupData, null, 2));
+      const downloadAnchor = document.createElement('a');
+      downloadAnchor.setAttribute("href", dataStr);
+      downloadAnchor.setAttribute("download", `chunk_reader_backup_${new Date().toISOString().slice(0,10)}.json`);
+      document.body.appendChild(downloadAnchor);
+      downloadAnchor.click();
+      downloadAnchor.remove();
+    }
+
+    function handleImportBackupFile(e) {
+      const file = e.target.files[0];
+      if (!file) return;
+
+      const reader = new FileReader();
+      reader.onload = function(event) {
+        try {
+          const imported = JSON.parse(event.target.result);
+          if (imported.folders && imported.texts) {
+            folders = imported.folders;
+            texts = imported.texts;
+            if (texts.length > 0) currentTextId = texts[0].id;
+            saveToLocalStorage();
+            renderTree();
+            renderReader();
+            alert('データを無事に復元しました！');
+          } else {
+            alert('有効なバックアップファイルではありません。');
+          }
+        } catch (err) {
+          alert('ファイルの読み込みに失敗しました。');
+        }
+      };
+      reader.readAsText(file);
+    }
+  </script>
+</body>
+</html>
