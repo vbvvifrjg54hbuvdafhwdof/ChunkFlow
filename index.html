@@ -4,100 +4,128 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>ChunkReader - スラッシュリーディング & 音読管理</title>
-  <!-- Tailwind CSS (デザイン用) -->
+  <!-- Tailwind CSS -->
   <script src="https://cdn.tailwindcss.com"></script>
-  <!-- FontAwesome (アイコン用) -->
+  <!-- FontAwesome Icons -->
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <!-- Google Fonts (Inter) -->
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  
   <style>
-    body { font-family: 'Helvetica Neue', Arial, 'Hiragino Kaku Gothic ProN', 'Hiragino Sans', Meiryo, sans-serif; }
-    .chunk-item { transition: all 0.15s ease; }
-    .chunk-item:hover { background-color: #f1f5f9; }
+    body {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    }
+    .chunk-hover {
+      transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+    .chunk-hover:hover {
+      background-color: rgba(238, 242, 255, 0.6);
+      transform: translateY(-1px);
+    }
+    .animate-pop {
+      animation: pop 0.15s ease-out;
+    }
+    @keyframes pop {
+      0% { transform: scale(0.96); opacity: 0; }
+      100% { transform: scale(1); opacity: 1; }
+    }
   </style>
 </head>
-<body class="bg-slate-50 text-slate-800 min-h-screen flex flex-col">
+<body class="bg-[#f8fafc] text-slate-800 min-h-screen flex flex-col selection:bg-indigo-100 selection:text-indigo-700">
 
   <!-- ヘッダー / ツールバー -->
-  <header class="bg-white border-b border-slate-200 sticky top-0 z-10 shadow-sm">
+  <header class="bg-white/80 backdrop-blur-md border-b border-slate-200/80 sticky top-0 z-30 shadow-sm">
     <div class="max-w-7xl mx-auto px-4 py-3 flex flex-wrap items-center justify-between gap-4">
       
-      <!-- ロゴ & タイトル -->
+      <!-- ロゴ & モバイルメニュー -->
       <div class="flex items-center space-x-3">
-        <button id="btn-toggle-sidebar" class="md:hidden text-slate-600 hover:text-slate-900 p-1">
-          <i class="fa-solid fa-bars text-xl"></i>
+        <button id="btn-toggle-sidebar" class="md:hidden text-slate-500 hover:text-slate-800 p-1.5 rounded-lg hover:bg-slate-100 transition">
+          <i class="fa-solid fa-bars text-lg"></i>
         </button>
-        <h1 class="text-xl font-bold bg-gradient-to-r from-slate-800 to-slate-600 bg-clip-text text-transparent flex items-center gap-2">
-          <i class="fa-solid fa-book-open text-indigo-600"></i> ChunkReader
-        </h1>
+        <div class="flex items-center gap-2.5">
+          <div class="w-9 h-9 bg-indigo-600 rounded-xl flex items-center justify-center text-white shadow-md shadow-indigo-200">
+            <i class="fa-solid fa-book-open text-base"></i>
+          </div>
+          <h1 class="text-xl font-bold tracking-tight text-slate-800">ChunkReader</h1>
+        </div>
       </div>
 
-      <!-- 表示コントロール（トグル群） -->
-      <div class="flex flex-wrap items-center gap-2 sm:gap-3 bg-slate-100 p-1.5 rounded-xl text-sm">
+      <!-- 表示コントロール（配置維持・洗練デザイン） -->
+      <div class="flex flex-wrap items-center gap-2 sm:gap-3 bg-slate-100/80 p-1.5 rounded-2xl border border-slate-200/60 shadow-inner">
         
         <!-- スラッシュ ON/OFF -->
-        <button id="toggle-slash" class="px-3 py-1.5 rounded-lg font-medium transition flex items-center gap-1.5 bg-white text-slate-800 shadow-sm">
-          <span class="font-bold text-indigo-600">/</span> スラッシュ
+        <button id="toggle-slash" class="px-3.5 py-1.5 rounded-xl font-semibold text-xs tracking-wide transition-all flex items-center gap-1.5">
+          <span class="text-sm font-bold text-indigo-500">/</span> スラッシュ
         </button>
 
         <!-- 赤字ハイライト ON/OFF -->
-        <button id="toggle-highlight" class="px-3 py-1.5 rounded-lg font-medium transition flex items-center gap-1.5 bg-white text-slate-800 shadow-sm">
-          <span class="text-red-500 font-bold">🔴</span> 重要語
+        <button id="toggle-highlight" class="px-3.5 py-1.5 rounded-xl font-semibold text-xs tracking-wide transition-all flex items-center gap-1.5">
+          <span class="w-2 h-2 rounded-full bg-rose-500 inline-block"></span> 重要語
         </button>
 
         <!-- 和訳モード切替 -->
-        <div class="flex bg-slate-200 p-0.5 rounded-lg text-xs font-semibold">
-          <button id="mode-tap" class="px-2.5 py-1 rounded-md transition bg-white text-indigo-600 shadow-sm">タップ表示</button>
-          <button id="mode-all" class="px-2.5 py-1 rounded-md transition text-slate-600 hover:text-slate-900">全表示</button>
-          <button id="mode-none" class="px-2.5 py-1 rounded-md transition text-slate-600 hover:text-slate-900">非表示</button>
+        <div class="flex bg-slate-200/70 p-0.5 rounded-xl text-xs font-semibold">
+          <button id="mode-tap" class="px-3 py-1.5 rounded-lg transition-all">タップ表示</button>
+          <button id="mode-all" class="px-3 py-1.5 rounded-lg transition-all text-slate-500 hover:text-slate-800">全表示</button>
+          <button id="mode-none" class="px-3 py-1.5 rounded-lg transition-all text-slate-500 hover:text-slate-800">非表示</button>
         </div>
 
         <!-- 白文（Raw）モード -->
-        <button id="toggle-raw" class="px-3 py-1.5 rounded-lg font-medium transition flex items-center gap-1.5 border border-slate-300 text-slate-600 hover:bg-white">
-          <i class="fa-solid fa-leaf text-emerald-500"></i> 白文
+        <button id="toggle-raw" class="px-3.5 py-1.5 rounded-xl font-semibold text-xs tracking-wide transition-all flex items-center gap-1.5 border border-slate-200 text-slate-600 hover:bg-white">
+          <i class="fa-solid fa-leaf text-emerald-500 text-xs"></i> 白文
         </button>
       </div>
 
     </div>
   </header>
 
-  <!-- メインコンテンツ領域 -->
+  <!-- メインレイアウト -->
   <div class="flex-1 flex max-w-7xl w-full mx-auto">
     
     <!-- サイドバー：登録英文一覧 -->
-    <aside id="sidebar" class="w-80 bg-white border-r border-slate-200 flex-shrink-0 flex flex-col justify-between hidden md:flex">
-      <div class="p-4">
-        <button id="btn-open-import" class="w-full py-2.5 px-4 bg-indigo-600 hover:bg-indigo-700 text-white font-medium rounded-xl shadow-sm transition flex items-center justify-center gap-2">
-          <i class="fa-solid fa-plus"></i> 新しい英文を追加
+    <aside id="sidebar" class="w-80 bg-white border-r border-slate-200/80 flex-shrink-0 flex flex-col justify-between hidden md:flex transition-all">
+      <div class="p-5">
+        <button id="btn-open-import" class="w-full py-3 px-4 bg-indigo-600 hover:bg-indigo-700 active:scale-[0.98] text-white font-semibold text-sm rounded-xl shadow-md shadow-indigo-100 transition-all flex items-center justify-center gap-2">
+          <i class="fa-solid fa-plus text-xs"></i> 新しい英文を追加
         </button>
 
-        <div class="mt-6">
-          <h2 class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3">保存した英文</h2>
-          <ul id="text-list" class="space-y-1">
-            <!-- 動的に英文リストが挿入されます -->
+        <div class="mt-8">
+          <h2 class="text-[11px] font-bold text-slate-400 uppercase tracking-wider px-2 mb-3">マイライブラリ</h2>
+          <ul id="text-list" class="space-y-1.5">
+            <!-- 英文リスト -->
           </ul>
         </div>
       </div>
-      <div class="p-4 border-t border-slate-100 text-xs text-slate-400 text-center">
-        データはブラウザに自動保存されます
+      <div class="p-4 border-t border-slate-100 text-[11px] text-slate-400 text-center font-medium">
+        データはブラウザ内に保存されます
       </div>
     </aside>
 
     <!-- メイン読解エリア -->
     <main class="flex-1 p-4 md:p-8 overflow-y-auto">
-      <div class="max-w-4xl mx-auto bg-white rounded-2xl p-6 md:p-10 shadow-sm border border-slate-200/80 min-h-[500px] flex flex-col">
+      <div class="max-w-4xl mx-auto bg-white rounded-3xl p-6 md:p-12 shadow-sm border border-slate-200/60 min-h-[550px] flex flex-col justify-between">
         
-        <!-- 文章ヘッダー -->
-        <div class="flex items-center justify-between border-b border-slate-100 pb-4 mb-6">
-          <h2 id="current-title" class="text-xl md:text-2xl font-bold text-slate-800">
-            <!-- タイトルがここに表示されます -->
-          </h2>
-          <button id="btn-delete-text" class="text-slate-400 hover:text-red-500 p-2 transition" title="この文章を削除">
-            <i class="fa-solid fa-trash-can"></i>
-          </button>
+        <div>
+          <!-- 文章ヘッダー -->
+          <div class="flex items-center justify-between border-b border-slate-100 pb-5 mb-8">
+            <h2 id="current-title" class="text-xl md:text-2xl font-bold text-slate-800 tracking-tight">
+              <!-- タイトル -->
+            </h2>
+            <button id="btn-open-delete" class="w-9 h-9 rounded-xl flex items-center justify-center text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition" title="この文章を削除">
+              <i class="fa-solid fa-trash-can text-sm"></i>
+            </button>
+          </div>
+
+          <!-- 英文表示領域 -->
+          <div id="reader-content" class="space-y-8 text-lg md:text-xl leading-relaxed">
+            <!-- チャンクコンテンツ -->
+          </div>
         </div>
 
-        <!-- 英文レンダリング領域 -->
-        <div id="reader-content" class="space-y-6 text-lg md:text-xl leading-relaxed flex-1">
-          <!-- ここにチャンク化された英文が動的に描画されます -->
+        <!-- 空状態のプレースホルダー -->
+        <div id="empty-state" class="hidden text-center py-20">
+          <i class="fa-solid fa-folder-open text-4xl text-slate-300 mb-3"></i>
+          <p class="text-slate-500 font-medium">文章が登録されていません</p>
         </div>
 
       </div>
@@ -105,37 +133,61 @@
 
   </div>
 
-  <!-- インポートモーダル (JSON貼り付け画面) -->
+  <!-- 【モーダル 1】インポート画面 (JSON追加) -->
   <div id="modal-import" class="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-50 flex items-center justify-center hidden p-4">
-    <div class="bg-white rounded-2xl max-w-2xl w-full p-6 shadow-2xl border border-slate-100 space-y-4">
-      <div class="flex items-center justify-between border-b border-slate-100 pb-3">
-        <h3 class="text-lg font-bold text-slate-800">新しい英文を登録 (JSON)</h3>
-        <button id="btn-close-import" class="text-slate-400 hover:text-slate-600 p-1">
-          <i class="fa-solid fa-xmark text-xl"></i>
+    <div class="bg-white rounded-3xl max-w-xl w-full p-6 md:p-8 shadow-2xl border border-slate-100 space-y-6 animate-pop">
+      <div class="flex items-center justify-between">
+        <h3 class="text-lg font-bold text-slate-800 tracking-tight">新しい英文を追加</h3>
+        <button id="btn-close-import" class="w-8 h-8 rounded-full flex items-center justify-center text-slate-400 hover:bg-slate-100 transition">
+          <i class="fa-solid fa-xmark"></i>
         </button>
       </div>
 
-      <div class="space-y-3">
+      <div class="space-y-4">
         <div>
-          <label class="block text-xs font-bold text-slate-500 mb-1">タイトル</label>
-          <input type="text" id="import-title" placeholder="例: AIと将来の仕事（ニュース解説）" class="w-full px-3 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm">
+          <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">タイトル</label>
+          <input type="text" id="import-title" placeholder="例: AIと将来の仕事（ニュース解説）" class="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 text-sm font-medium transition">
         </div>
         <div>
-          <label class="block text-xs font-bold text-slate-500 mb-1">LLMが出力したJSONデータ</label>
-          <textarea id="import-json" rows="8" placeholder="[ { &quot;sentence_id&quot;: 1, &quot;chunks&quot;: [...] } ]" class="w-full px-3 py-2 border border-slate-200 rounded-lg font-mono text-xs focus:outline-none focus:ring-2 focus:ring-indigo-500"></textarea>
+          <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">LLMが出力したJSONデータ</label>
+          <textarea id="import-json" rows="7" placeholder='[ { "sentence_id": 1, "chunks": [...] } ]' class="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl font-mono text-xs focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition"></textarea>
         </div>
       </div>
 
-      <div class="flex justify-end space-x-2 pt-2">
-        <button id="btn-cancel-import" class="px-4 py-2 rounded-lg text-slate-600 hover:bg-slate-100 text-sm font-medium">キャンセル</button>
-        <button id="btn-save-import" class="px-4 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium shadow-sm">保存する</button>
+      <div class="flex justify-end gap-3 pt-2">
+        <button id="btn-cancel-import" class="px-5 py-2.5 rounded-xl text-slate-600 hover:bg-slate-100 text-sm font-semibold transition">キャンセル</button>
+        <button id="btn-save-import" class="px-5 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold shadow-md shadow-indigo-100 transition">追加する</button>
       </div>
     </div>
   </div>
 
-  <!-- アプリのJSロジック -->
+  <!-- 【モーダル 2】二重確認用 削除ダイアログ -->
+  <div id="modal-delete" class="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-50 flex items-center justify-center hidden p-4">
+    <div class="bg-white rounded-3xl max-w-md w-full p-6 md:p-8 shadow-2xl border border-slate-100 space-y-6 animate-pop text-center">
+      
+      <div class="w-12 h-12 bg-rose-50 text-rose-500 rounded-2xl flex items-center justify-center mx-auto text-xl">
+        <i class="fa-solid fa-triangle-exclamation"></i>
+      </div>
+
+      <div class="space-y-2">
+        <h3 class="text-lg font-bold text-slate-800">本当に削除しますか？</h3>
+        <p id="delete-target-title" class="text-sm text-slate-500 font-medium px-4 break-words">
+          <!-- 削除対象のタイトル -->
+        </p>
+        <p class="text-xs text-rose-500 font-medium">この操作は取り消せません。</p>
+      </div>
+
+      <div class="flex justify-center gap-3 pt-2">
+        <button id="btn-cancel-delete" class="w-1/2 py-2.5 rounded-xl border border-slate-200 hover:bg-slate-50 text-slate-600 text-sm font-semibold transition">キャンセル</button>
+        <button id="btn-confirm-delete" class="w-1/2 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-sm font-semibold shadow-md shadow-rose-100 transition">削除実行</button>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- アプリJSロジック -->
   <script>
-    // サンプルデータ（前回Gemが出力したデータ）
+    // サンプルデータ
     const SAMPLE_DATA = {
       id: "sample-1",
       title: "サンプル：AIと将来の仕事",
@@ -206,17 +258,283 @@
       ]
     };
 
-    // アプリの状態管理
+    // 状態データ
     let texts = [];
     let currentTextId = null;
     let config = {
       showSlash: true,
       showHighlight: true,
-      transMode: 'tap', // 'tap' | 'all' | 'none'
+      transMode: 'tap',
       isRaw: false
     };
-    // 個別タップ状態の保持 (キー: "sentenceIdx-chunkIdx")
     let tappedChunks = {};
 
-    // DOM要素の取得
-    const readerCon
+    // 初期化
+    document.addEventListener('DOMContentLoaded', () => {
+      const stored = localStorage.getItem('chunk_reader_texts_v2');
+      if (stored) {
+        texts = JSON.parse(stored);
+      } else {
+        texts = [SAMPLE_DATA];
+        saveToLocalStorage();
+      }
+      if (texts.length > 0) currentTextId = texts[0].id;
+
+      setupEventListeners();
+      updateToggleStyles();
+      renderSidebar();
+      renderReader();
+    });
+
+    function saveToLocalStorage() {
+      localStorage.setItem('chunk_reader_texts_v2', JSON.stringify(texts));
+    }
+
+    // イベント登録
+    function setupEventListeners() {
+      // トグル
+      document.getElementById('toggle-slash').onclick = () => {
+        config.showSlash = !config.showSlash;
+        updateToggleStyles();
+        renderReader();
+      };
+
+      document.getElementById('toggle-highlight').onclick = () => {
+        config.showHighlight = !config.showHighlight;
+        updateToggleStyles();
+        renderReader();
+      };
+
+      document.getElementById('toggle-raw').onclick = () => {
+        config.isRaw = !config.isRaw;
+        updateToggleStyles();
+        renderReader();
+      };
+
+      ['tap', 'all', 'none'].forEach(mode => {
+        document.getElementById(`mode-${mode}`).onclick = () => {
+          config.transMode = mode;
+          tappedChunks = {};
+          updateToggleStyles();
+          renderReader();
+        };
+      });
+
+      // インポートモーダル
+      const modalImport = document.getElementById('modal-import');
+      document.getElementById('btn-open-import').onclick = () => modalImport.classList.remove('hidden');
+      document.getElementById('btn-close-import').onclick = () => modalImport.classList.add('hidden');
+      document.getElementById('btn-cancel-import').onclick = () => modalImport.classList.add('hidden');
+      document.getElementById('btn-save-import').onclick = handleImport;
+
+      // 削除二重確認モーダル
+      const modalDelete = document.getElementById('modal-delete');
+      document.getElementById('btn-open-delete').onclick = () => {
+        const activeText = texts.find(t => t.id === currentTextId);
+        if (!activeText) return;
+        document.getElementById('delete-target-title').textContent = `「${activeText.title}」`;
+        modalDelete.classList.remove('hidden');
+      };
+      document.getElementById('btn-cancel-delete').onclick = () => modalDelete.classList.add('hidden');
+      document.getElementById('btn-confirm-delete').onclick = () => {
+        modalDelete.classList.add('hidden');
+        handleDeleteText();
+      };
+
+      // モバイルサイドバー
+      document.getElementById('btn-toggle-sidebar').onclick = () => {
+        const sidebar = document.getElementById('sidebar');
+        sidebar.classList.toggle('hidden');
+        sidebar.classList.toggle('absolute');
+        sidebar.classList.toggle('z-40');
+        sidebar.classList.toggle('h-full');
+        sidebar.classList.toggle('shadow-2xl');
+      };
+    }
+
+    // スタイル更新
+    function updateToggleStyles() {
+      const slashBtn = document.getElementById('toggle-slash');
+      slashBtn.className = config.showSlash
+        ? "px-3.5 py-1.5 rounded-xl font-semibold text-xs tracking-wide transition-all bg-white text-slate-800 shadow-sm border border-slate-200/80"
+        : "px-3.5 py-1.5 rounded-xl font-semibold text-xs tracking-wide transition-all text-slate-400 hover:text-slate-600";
+
+      const hlBtn = document.getElementById('toggle-highlight');
+      hlBtn.className = config.showHighlight
+        ? "px-3.5 py-1.5 rounded-xl font-semibold text-xs tracking-wide transition-all bg-white text-slate-800 shadow-sm border border-slate-200/80"
+        : "px-3.5 py-1.5 rounded-xl font-semibold text-xs tracking-wide transition-all text-slate-400 hover:text-slate-600";
+
+      const rawBtn = document.getElementById('toggle-raw');
+      rawBtn.className = config.isRaw
+        ? "px-3.5 py-1.5 rounded-xl font-semibold text-xs tracking-wide transition-all bg-emerald-500 text-white shadow-md shadow-emerald-100"
+        : "px-3.5 py-1.5 rounded-xl font-semibold text-xs tracking-wide transition-all border border-slate-200 text-slate-600 hover:bg-white";
+
+      ['tap', 'all', 'none'].forEach(mode => {
+        const btn = document.getElementById(`mode-${mode}`);
+        if (config.transMode === mode) {
+          btn.className = "px-3 py-1.5 rounded-lg transition-all bg-white text-indigo-600 font-bold shadow-sm";
+        } else {
+          btn.className = "px-3 py-1.5 rounded-lg transition-all text-slate-500 hover:text-slate-800 font-medium";
+        }
+      });
+    }
+
+    // サイドバー描画
+    function renderSidebar() {
+      const textListEl = document.getElementById('text-list');
+      textListEl.innerHTML = '';
+      
+      texts.forEach(t => {
+        const li = document.createElement('li');
+        const isActive = t.id === currentTextId;
+        li.className = `px-3.5 py-3 rounded-2xl cursor-pointer text-xs font-semibold transition-all flex items-center justify-between ${
+          isActive ? 'bg-indigo-50/80 text-indigo-700 shadow-sm border border-indigo-100' : 'text-slate-600 hover:bg-slate-50'
+        }`;
+        li.innerHTML = `
+          <span class="truncate pr-2">${t.title}</span>
+          ${isActive ? '<i class="fa-solid fa-angle-right text-indigo-500"></i>' : ''}
+        `;
+        li.onclick = () => {
+          currentTextId = t.id;
+          tappedChunks = {};
+          renderSidebar();
+          renderReader();
+        };
+        textListEl.appendChild(li);
+      });
+    }
+
+    // メイン読解描画
+    function renderReader() {
+      const activeText = texts.find(t => t.id === currentTextId);
+      const readerContent = document.getElementById('reader-content');
+      const currentTitleEl = document.getElementById('current-title');
+      const emptyState = document.getElementById('empty-state');
+
+      if (!activeText) {
+        currentTitleEl.textContent = "文章がありません";
+        readerContent.innerHTML = '';
+        emptyState.classList.remove('hidden');
+        return;
+      }
+
+      emptyState.classList.add('hidden');
+      currentTitleEl.textContent = activeText.title;
+      readerContent.innerHTML = '';
+
+      // 白文（Raw）モード
+      if (config.isRaw) {
+        const p = document.createElement('p');
+        p.className = "text-slate-800 leading-relaxed font-normal tracking-wide";
+        const fullText = activeText.data
+          .map(s => s.chunks.map(c => c.en).join(' '))
+          .join(' ');
+        p.textContent = fullText;
+        readerContent.appendChild(p);
+        return;
+      }
+
+      // 通常チャンク読解モード
+      activeText.data.forEach((sentence, sIdx) => {
+        const sentenceDiv = document.createElement('div');
+        sentenceDiv.className = "sentence-block flex flex-wrap items-baseline gap-y-2";
+
+        sentence.chunks.forEach((chunk, cIdx) => {
+          const chunkKey = `${sIdx}-${cIdx}`;
+          const isLastChunk = cIdx === sentence.chunks.length - 1;
+
+          // チャンクカード
+          const chunkWrap = document.createElement('div');
+          chunkWrap.className = "inline-flex flex-col mx-0.5 px-1.5 py-1 rounded-lg chunk-hover cursor-pointer";
+          
+          chunkWrap.onclick = () => {
+            if (config.transMode === 'tap') {
+              tappedChunks[chunkKey] = !tappedChunks[chunkKey];
+              renderReader();
+            }
+          };
+
+          // 英文
+          const enSpan = document.createElement('span');
+          enSpan.className = "font-medium select-none tracking-wide";
+          
+          if (config.showHighlight && chunk.is_important) {
+            enSpan.classList.add('text-rose-600', 'font-semibold', 'bg-rose-50/80', 'px-1', 'rounded');
+          } else {
+            enSpan.classList.add('text-slate-800');
+          }
+          
+          enSpan.textContent = chunk.en;
+          chunkWrap.appendChild(enSpan);
+
+          // 和訳表示制御
+          let showJa = false;
+          if (config.transMode === 'all') showJa = true;
+          if (config.transMode === 'tap' && tappedChunks[chunkKey]) showJa = true;
+
+          if (showJa) {
+            const jaSpan = document.createElement('span');
+            jaSpan.className = "text-xs text-indigo-600 font-normal mt-1 animate-pop tracking-normal";
+            jaSpan.textContent = chunk.ja;
+            chunkWrap.appendChild(jaSpan);
+          }
+
+          sentenceDiv.appendChild(chunkWrap);
+
+          // スラッシュ
+          if (config.showSlash && !isLastChunk) {
+            const slashSpan = document.createElement('span');
+            slashSpan.className = "text-indigo-300 font-light mx-1 select-none text-base";
+            slashSpan.textContent = "/";
+            sentenceDiv.appendChild(slashSpan);
+          }
+        });
+
+        readerContent.appendChild(sentenceDiv);
+      });
+    }
+
+    // インポート実行
+    function handleImport() {
+      const title = document.getElementById('import-title').value.trim();
+      const jsonStr = document.getElementById('import-json').value.trim();
+
+      if (!title || !jsonStr) {
+        alert('タイトルとJSONデータの両方を入力してください。');
+        return;
+      }
+
+      try {
+        const parsedData = JSON.parse(jsonStr);
+        const newText = {
+          id: "text-" + Date.now(),
+          title: title,
+          data: parsedData
+        };
+
+        texts.push(newText);
+        currentTextId = newText.id;
+        saveToLocalStorage();
+
+        document.getElementById('import-title').value = '';
+        document.getElementById('import-json').value = '';
+        document.getElementById('modal-import').classList.add('hidden');
+
+        renderSidebar();
+        renderReader();
+      } catch (e) {
+        alert('JSON形式が正しくありません。LLMの出力をそのまま貼り付けてください。');
+      }
+    }
+
+    // 削除実行
+    function handleDeleteText() {
+      texts = texts.filter(t => t.id !== currentTextId);
+      currentTextId = texts.length > 0 ? texts[0].id : null;
+      saveToLocalStorage();
+      renderSidebar();
+      renderReader();
+    }
+  </script>
+</body>
+</html>
