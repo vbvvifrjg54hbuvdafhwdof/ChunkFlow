@@ -30,45 +30,49 @@
       background-color: #e0e7ff !important;
     }
 
-    /* ★ 英文と和訳を超密着させ、次の英文行を押し下げる見やすさ重視CSS */
+    /* ★ 文章ブロック（画面幅を超えない） */
     .sentence-block {
       display: block !important;
       margin-bottom: 1.2rem !important;
       line-height: 1.3 !important;
+      max-width: 100% !important;
       word-break: break-word !important;
+      overflow-wrap: break-word !important;
     }
 
-    /* チャンク枠（下部に余白を作り、次の英文行と距離をあける） */
+    /* ★ チャンク親枠（長いチャンクも画面内に安全に収める） */
     .chunk-box {
       position: relative !important;
       display: inline-block !important;
       vertical-align: top !important;
       margin-left: 2px !important;
       margin-right: 2px !important;
-      margin-bottom: 0.85rem !important; /* 和訳の下にクリアな余白を常時確保 */
+      margin-bottom: 0.85rem !important;
       padding: 0 2px !important;
       border-radius: 4px;
+      max-width: 100% !important; /* 画面幅を超えさせない */
     }
 
-    /* 和訳非表示モード時は下の余白を詰める */
     .mode-no-trans .chunk-box {
       margin-bottom: 0.2rem !important;
     }
 
-    /* 英文本体 */
+    /* ★ 英文本体（長文チャンクは画面端で自然に単語折り返し） */
     .chunk-en {
-      display: inline-block !important;
-      white-space: nowrap !important;
+      display: inline !important;
+      white-space: normal !important; /* 画面幅を超えた場合のみ折り返しを許可 */
+      word-break: break-word !important;
+      overflow-wrap: break-word !important;
       line-height: 1.2 !important;
     }
 
-    /* 和訳（英文の1px直下に吸着） */
+    /* 和訳本体（英文直下に1pxで吸着＋折り返し） */
     .chunk-ja {
       position: absolute !important;
       top: 100% !important;
       left: 0 !important;
       width: 100% !important;
-      margin-top: 1px !important; /* ★英文との距離を1pxに密着 */
+      margin-top: 1px !important;
       
       font-size: 0.62rem !important;
       line-height: 1.15 !important;
@@ -135,10 +139,10 @@
   </header>
 
   <!-- メイン領域 -->
-  <main class="flex-1 max-w-4xl w-full mx-auto p-3 md:p-6">
+  <main class="flex-1 max-w-4xl w-full mx-auto p-3 md:p-6 overflow-x-hidden">
 
     <!-- VIEW 1: 読解画面 -->
-    <section id="view-reader" class="bg-white rounded-2xl p-4 md:p-8 shadow-sm border border-slate-200/60 min-h-[70vh] flex flex-col justify-between">
+    <section id="view-reader" class="bg-white rounded-2xl p-4 md:p-8 shadow-sm border border-slate-200/60 min-h-[70vh] flex flex-col justify-between overflow-x-hidden">
       <div>
         <div class="flex items-center justify-between border-b border-slate-100 pb-3 mb-5">
           <h2 id="current-title" class="text-lg md:text-xl font-bold text-slate-800 tracking-tight leading-snug"></h2>
@@ -615,7 +619,7 @@
         return;
       }
 
-      // 和訳表示モード判定（クラス付与で余白を自動コントロール）
+      // 和訳表示モード判定（余白自動コントロール）
       const isNoTrans = config.transMode === 'none';
       if (isNoTrans) {
         readerContent.classList.add('mode-no-trans');
@@ -669,7 +673,7 @@
 
           chunkWrap.appendChild(enSpan);
 
-          // 和訳制御（1pxピタッと英文直下に吸着）
+          // 和訳制御（英文の1px直下に吸着）
           let showJa = false;
           if (config.transMode === 'all') showJa = true;
           if (config.transMode === 'tap' && tappedChunks[chunkKey]) showJa = true;
@@ -746,108 +750,3 @@
         if (!titleStr) titleStr = `英文テキスト ${texts.length + 1}`;
 
         const newText = {
-          id: "text-" + Date.now(),
-          folderId: folderId,
-          title: titleStr,
-          data: parsed
-        };
-
-        texts.push(newText);
-        currentTextId = newText.id;
-        saveToLocalStorage();
-
-        document.getElementById('import-title').value = '';
-        document.getElementById('import-json').value = '';
-        renderTree();
-        switchView('reader');
-
-      } catch (err) {
-        showError('JSONの解析に失敗しました。ChatGPT等の出力をそのまま貼り付けてください。');
-      }
-    }
-
-    function showError(msg) {
-      const errorEl = document.getElementById('import-error');
-      errorEl.textContent = msg;
-      errorEl.classList.remove('hidden');
-    }
-
-    function handleConfirmDelete() {
-      if (!deleteTarget) return;
-
-      if (deleteTarget.type === 'text') {
-        texts = texts.filter(t => t.id !== deleteTarget.id);
-        if (currentTextId === deleteTarget.id) {
-          currentTextId = texts.length > 0 ? texts[0].id : null;
-        }
-      } else if (deleteTarget.type === 'folder') {
-        const folderIdsToDelete = [deleteTarget.id];
-        function collectChildren(fid) {
-          const subs = folders.filter(f => f.parentId === fid);
-          subs.forEach(s => {
-            folderIdsToDelete.push(s.id);
-            collectChildren(s.id);
-          });
-        }
-        collectChildren(deleteTarget.id);
-
-        folders = folders.filter(f => !folderIdsToDelete.includes(f.id));
-        texts = texts.filter(t => !folderIdsToDelete.includes(t.folderId));
-
-        if (!texts.find(t => t.id === currentTextId)) {
-          currentTextId = texts.length > 0 ? texts[0].id : null;
-        }
-      }
-
-      saveToLocalStorage();
-      document.getElementById('modal-delete').classList.add('hidden');
-      deleteTarget = null;
-      renderTree();
-      renderReader();
-    }
-
-    function handleExportData() {
-      const backupData = {
-        version: "5.0",
-        exportDate: new Date().toISOString(),
-        folders: folders,
-        texts: texts
-      };
-
-      const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(backupData, null, 2));
-      const downloadAnchor = document.createElement('a');
-      downloadAnchor.setAttribute("href", dataStr);
-      downloadAnchor.setAttribute("download", `chunk_reader_backup_${new Date().toISOString().slice(0,10)}.json`);
-      document.body.appendChild(downloadAnchor);
-      downloadAnchor.click();
-      downloadAnchor.remove();
-    }
-
-    function handleImportBackupFile(e) {
-      const file = e.target.files[0];
-      if (!file) return;
-
-      const reader = new FileReader();
-      reader.onload = function(event) {
-        try {
-          const imported = JSON.parse(event.target.result);
-          if (imported.folders && imported.texts) {
-            folders = imported.folders;
-            texts = imported.texts;
-            if (texts.length > 0) currentTextId = texts[0].id;
-            saveToLocalStorage();
-            renderTree();
-            renderReader();
-            alert('データを無事に復元しました！');
-          } else {
-            alert('有効なバックアップファイルではありません。');
-          }
-        } catch (err) {
-          alert('ファイルの読み込みに失敗しました。');
-        }
-      };
-      reader.readAsText(file);
-    }
-  </script>
-</body>
-</html>
