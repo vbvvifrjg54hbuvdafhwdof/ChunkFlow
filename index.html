@@ -8,18 +8,18 @@
   <script src="https://cdn.tailwindcss.com"></script>
   <!-- FontAwesome Icons -->
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-  <!-- Google Fonts (Inter) -->
+  <!-- Google Fonts -->
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
   
   <style>
     body {
-      font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
     }
     .chunk-hover {
-      transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+      transition: all 0.15s ease;
     }
     .chunk-hover:hover {
-      background-color: rgba(238, 242, 255, 0.6);
+      background-color: rgba(238, 242, 255, 0.7);
       transform: translateY(-1px);
     }
     .animate-pop {
@@ -31,10 +31,10 @@
     }
   </style>
 </head>
-<body class="bg-[#f8fafc] text-slate-800 min-h-screen flex flex-col selection:bg-indigo-100 selection:text-indigo-700">
+<body class="bg-[#f8fafc] text-slate-800 min-h-screen flex flex-col">
 
   <!-- ヘッダー / ツールバー -->
-  <header class="bg-white/80 backdrop-blur-md border-b border-slate-200/80 sticky top-0 z-30 shadow-sm">
+  <header class="bg-white/90 backdrop-blur-md border-b border-slate-200/80 sticky top-0 z-30 shadow-sm">
     <div class="max-w-7xl mx-auto px-4 py-3 flex flex-wrap items-center justify-between gap-4">
       
       <!-- ロゴ & モバイルメニュー -->
@@ -50,16 +50,16 @@
         </div>
       </div>
 
-      <!-- 表示コントロール（配置維持・洗練デザイン） -->
+      <!-- 表示コントロール -->
       <div class="flex flex-wrap items-center gap-2 sm:gap-3 bg-slate-100/80 p-1.5 rounded-2xl border border-slate-200/60 shadow-inner">
         
         <!-- スラッシュ ON/OFF -->
-        <button id="toggle-slash" class="px-3.5 py-1.5 rounded-xl font-semibold text-xs tracking-wide transition-all flex items-center gap-1.5">
+        <button id="toggle-slash" class="px-3.5 py-1.5 rounded-xl font-semibold text-xs transition-all flex items-center gap-1.5">
           <span class="text-sm font-bold text-indigo-500">/</span> スラッシュ
         </button>
 
         <!-- 赤字ハイライト ON/OFF -->
-        <button id="toggle-highlight" class="px-3.5 py-1.5 rounded-xl font-semibold text-xs tracking-wide transition-all flex items-center gap-1.5">
+        <button id="toggle-highlight" class="px-3.5 py-1.5 rounded-xl font-semibold text-xs transition-all flex items-center gap-1.5">
           <span class="w-2 h-2 rounded-full bg-rose-500 inline-block"></span> 重要語
         </button>
 
@@ -71,7 +71,7 @@
         </div>
 
         <!-- 白文（Raw）モード -->
-        <button id="toggle-raw" class="px-3.5 py-1.5 rounded-xl font-semibold text-xs tracking-wide transition-all flex items-center gap-1.5 border border-slate-200 text-slate-600 hover:bg-white">
+        <button id="toggle-raw" class="px-3.5 py-1.5 rounded-xl font-semibold text-xs transition-all flex items-center gap-1.5 border border-slate-200 text-slate-600 hover:bg-white">
           <i class="fa-solid fa-leaf text-emerald-500 text-xs"></i> 白文
         </button>
       </div>
@@ -97,7 +97,7 @@
         </div>
       </div>
       <div class="p-4 border-t border-slate-100 text-[11px] text-slate-400 text-center font-medium">
-        データはブラウザ内に保存されます
+        データはブラウザ内に自動保存されます
       </div>
     </aside>
 
@@ -125,7 +125,7 @@
         <!-- 空状態のプレースホルダー -->
         <div id="empty-state" class="hidden text-center py-20">
           <i class="fa-solid fa-folder-open text-4xl text-slate-300 mb-3"></i>
-          <p class="text-slate-500 font-medium">文章が登録されていません</p>
+          <p class="text-slate-500 font-medium">文章がありません</p>
         </div>
 
       </div>
@@ -133,9 +133,9 @@
 
   </div>
 
-  <!-- 【モーダル 1】インポート画面 (JSON追加) -->
+  <!-- 【モーダル 1】インポート画面 (生英文 / JSON 共通) -->
   <div id="modal-import" class="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-50 flex items-center justify-center hidden p-4">
-    <div class="bg-white rounded-3xl max-w-xl w-full p-6 md:p-8 shadow-2xl border border-slate-100 space-y-6 animate-pop">
+    <div class="bg-white rounded-3xl max-w-xl w-full p-6 md:p-8 shadow-2xl border border-slate-100 space-y-5 animate-pop">
       <div class="flex items-center justify-between">
         <h3 class="text-lg font-bold text-slate-800 tracking-tight">新しい英文を追加</h3>
         <button id="btn-close-import" class="w-8 h-8 rounded-full flex items-center justify-center text-slate-400 hover:bg-slate-100 transition">
@@ -145,18 +145,20 @@
 
       <div class="space-y-4">
         <div>
-          <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">タイトル</label>
-          <input type="text" id="import-title" placeholder="例: AIと将来の仕事（ニュース解説）" class="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 text-sm font-medium transition">
+          <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">タイトル（省略可）</label>
+          <input type="text" id="import-title" placeholder="例: 今日のニュース" class="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 text-sm font-medium transition">
         </div>
         <div>
-          <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">LLMが出力したJSONデータ</label>
-          <textarea id="import-json" rows="7" placeholder='[ { "sentence_id": 1, "chunks": [...] } ]' class="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl font-mono text-xs focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition"></textarea>
+          <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">
+            英文（生の英文・LLMのJSONどちらでも貼り付け可能）
+          </label>
+          <textarea id="import-text" rows="7" placeholder="生の英文をそのまま貼り付けるか、LLMが出力したJSONコードを貼り付けてください。" class="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition"></textarea>
         </div>
       </div>
 
       <div class="flex justify-end gap-3 pt-2">
         <button id="btn-cancel-import" class="px-5 py-2.5 rounded-xl text-slate-600 hover:bg-slate-100 text-sm font-semibold transition">キャンセル</button>
-        <button id="btn-save-import" class="px-5 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold shadow-md shadow-indigo-100 transition">追加する</button>
+        <button id="btn-save-import" class="px-5 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold shadow-md shadow-indigo-100 transition">登録する</button>
       </div>
     </div>
   </div>
@@ -164,30 +166,24 @@
   <!-- 【モーダル 2】二重確認用 削除ダイアログ -->
   <div id="modal-delete" class="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-50 flex items-center justify-center hidden p-4">
     <div class="bg-white rounded-3xl max-w-md w-full p-6 md:p-8 shadow-2xl border border-slate-100 space-y-6 animate-pop text-center">
-      
       <div class="w-12 h-12 bg-rose-50 text-rose-500 rounded-2xl flex items-center justify-center mx-auto text-xl">
         <i class="fa-solid fa-triangle-exclamation"></i>
       </div>
-
       <div class="space-y-2">
         <h3 class="text-lg font-bold text-slate-800">本当に削除しますか？</h3>
-        <p id="delete-target-title" class="text-sm text-slate-500 font-medium px-4 break-words">
-          <!-- 削除対象のタイトル -->
-        </p>
+        <p id="delete-target-title" class="text-sm text-slate-500 font-medium px-4 break-words"></p>
         <p class="text-xs text-rose-500 font-medium">この操作は取り消せません。</p>
       </div>
-
       <div class="flex justify-center gap-3 pt-2">
         <button id="btn-cancel-delete" class="w-1/2 py-2.5 rounded-xl border border-slate-200 hover:bg-slate-50 text-slate-600 text-sm font-semibold transition">キャンセル</button>
         <button id="btn-confirm-delete" class="w-1/2 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-sm font-semibold shadow-md shadow-rose-100 transition">削除実行</button>
       </div>
-
     </div>
   </div>
 
   <!-- アプリJSロジック -->
   <script>
-    // サンプルデータ
+    // 初期サンプルデータ
     const SAMPLE_DATA = {
       id: "sample-1",
       title: "サンプル：AIと将来の仕事",
@@ -222,43 +218,10 @@
             { "en": "usually create new types of jobs", "is_important": false, "ja": "通常、新しい種類の仕事を生み出すということだ" },
             { "en": "while destroying old ones.", "is_important": true, "ja": "古いものを破壊する一方で。" }
           ]
-        },
-        {
-          "sentence_id": 4,
-          "chunks": [
-            { "en": "For instance,", "is_important": true, "ja": "例えば、" },
-            { "en": "while traditional manufacturing jobs have declined,", "is_important": true, "ja": "従来の製造業の仕事が減少した一方で、" },
-            { "en": "demand for software engineers and data analysts", "is_important": false, "ja": "ソフトウェアエンジニアやデータアナリストの需要は" },
-            { "en": "has skyrocketed.", "is_important": false, "ja": "急増した。" }
-          ]
-        },
-        {
-          "sentence_id": 5,
-          "chunks": [
-            { "en": "Therefore,", "is_important": true, "ja": "したがって、" },
-            { "en": "rather than fearing technology,", "is_important": true, "ja": "テクノロジーを恐れるのではなく、" },
-            { "en": "educational institutions must adapt", "is_important": false, "ja": "教育機関は適応しなければならない" },
-            { "en": "by teaching skills", "is_important": false, "ja": "スキルを教えることによって" },
-            { "en": "that machines cannot easily replicate,", "is_important": false, "ja": "機械が容易に模倣できない（スキルを）、" },
-            { "en": "such as critical thinking,", "is_important": false, "ja": "批判的思考や" },
-            { "en": "creativity,", "is_important": false, "ja": "創造性、" },
-            { "en": "and emotional intelligence.", "is_important": false, "ja": "そして感情的知性などの。" }
-          ]
-        },
-        {
-          "sentence_id": 6,
-          "chunks": [
-            { "en": "In addition,", "is_important": true, "ja": "さらに、" },
-            { "en": "lifelong learning will become essential", "is_important": false, "ja": "生涯学習が不可欠になるだろう" },
-            { "en": "for workers", "is_important": false, "ja": "労働者にとって" },
-            { "en": "who want to stay competitive", "is_important": false, "ja": "競争力を維持したいと望む（労働者）、" },
-            { "en": "in an ever-changing job market.", "is_important": false, "ja": "絶えず変化する労働市場において。" }
-          ]
         }
       ]
     };
 
-    // 状態データ
     let texts = [];
     let currentTextId = null;
     let config = {
@@ -269,9 +232,8 @@
     };
     let tappedChunks = {};
 
-    // 初期化
     document.addEventListener('DOMContentLoaded', () => {
-      const stored = localStorage.getItem('chunk_reader_texts_v2');
+      const stored = localStorage.getItem('chunk_reader_texts_v3');
       if (stored) {
         texts = JSON.parse(stored);
       } else {
@@ -287,12 +249,10 @@
     });
 
     function saveToLocalStorage() {
-      localStorage.setItem('chunk_reader_texts_v2', JSON.stringify(texts));
+      localStorage.setItem('chunk_reader_texts_v3', JSON.stringify(texts));
     }
 
-    // イベント登録
     function setupEventListeners() {
-      // トグル
       document.getElementById('toggle-slash').onclick = () => {
         config.showSlash = !config.showSlash;
         updateToggleStyles();
@@ -320,14 +280,12 @@
         };
       });
 
-      // インポートモーダル
       const modalImport = document.getElementById('modal-import');
       document.getElementById('btn-open-import').onclick = () => modalImport.classList.remove('hidden');
       document.getElementById('btn-close-import').onclick = () => modalImport.classList.add('hidden');
       document.getElementById('btn-cancel-import').onclick = () => modalImport.classList.add('hidden');
       document.getElementById('btn-save-import').onclick = handleImport;
 
-      // 削除二重確認モーダル
       const modalDelete = document.getElementById('modal-delete');
       document.getElementById('btn-open-delete').onclick = () => {
         const activeText = texts.find(t => t.id === currentTextId);
@@ -341,33 +299,30 @@
         handleDeleteText();
       };
 
-      // モバイルサイドバー
       document.getElementById('btn-toggle-sidebar').onclick = () => {
         const sidebar = document.getElementById('sidebar');
         sidebar.classList.toggle('hidden');
         sidebar.classList.toggle('absolute');
         sidebar.classList.toggle('z-40');
         sidebar.classList.toggle('h-full');
-        sidebar.classList.toggle('shadow-2xl');
       };
     }
 
-    // スタイル更新
     function updateToggleStyles() {
       const slashBtn = document.getElementById('toggle-slash');
       slashBtn.className = config.showSlash
-        ? "px-3.5 py-1.5 rounded-xl font-semibold text-xs tracking-wide transition-all bg-white text-slate-800 shadow-sm border border-slate-200/80"
-        : "px-3.5 py-1.5 rounded-xl font-semibold text-xs tracking-wide transition-all text-slate-400 hover:text-slate-600";
+        ? "px-3.5 py-1.5 rounded-xl font-semibold text-xs transition-all bg-white text-slate-800 shadow-sm border border-slate-200/80"
+        : "px-3.5 py-1.5 rounded-xl font-semibold text-xs transition-all text-slate-400 hover:text-slate-600";
 
       const hlBtn = document.getElementById('toggle-highlight');
       hlBtn.className = config.showHighlight
-        ? "px-3.5 py-1.5 rounded-xl font-semibold text-xs tracking-wide transition-all bg-white text-slate-800 shadow-sm border border-slate-200/80"
-        : "px-3.5 py-1.5 rounded-xl font-semibold text-xs tracking-wide transition-all text-slate-400 hover:text-slate-600";
+        ? "px-3.5 py-1.5 rounded-xl font-semibold text-xs transition-all bg-white text-slate-800 shadow-sm border border-slate-200/80"
+        : "px-3.5 py-1.5 rounded-xl font-semibold text-xs transition-all text-slate-400 hover:text-slate-600";
 
       const rawBtn = document.getElementById('toggle-raw');
       rawBtn.className = config.isRaw
-        ? "px-3.5 py-1.5 rounded-xl font-semibold text-xs tracking-wide transition-all bg-emerald-500 text-white shadow-md shadow-emerald-100"
-        : "px-3.5 py-1.5 rounded-xl font-semibold text-xs tracking-wide transition-all border border-slate-200 text-slate-600 hover:bg-white";
+        ? "px-3.5 py-1.5 rounded-xl font-semibold text-xs transition-all bg-emerald-500 text-white shadow-md shadow-emerald-100"
+        : "px-3.5 py-1.5 rounded-xl font-semibold text-xs transition-all border border-slate-200 text-slate-600 hover:bg-white";
 
       ['tap', 'all', 'none'].forEach(mode => {
         const btn = document.getElementById(`mode-${mode}`);
@@ -379,7 +334,6 @@
       });
     }
 
-    // サイドバー描画
     function renderSidebar() {
       const textListEl = document.getElementById('text-list');
       textListEl.innerHTML = '';
@@ -404,7 +358,6 @@
       });
     }
 
-    // メイン読解描画
     function renderReader() {
       const activeText = texts.find(t => t.id === currentTextId);
       const readerContent = document.getElementById('reader-content');
@@ -422,7 +375,6 @@
       currentTitleEl.textContent = activeText.title;
       readerContent.innerHTML = '';
 
-      // 白文（Raw）モード
       if (config.isRaw) {
         const p = document.createElement('p');
         p.className = "text-slate-800 leading-relaxed font-normal tracking-wide";
@@ -434,7 +386,6 @@
         return;
       }
 
-      // 通常チャンク読解モード
       activeText.data.forEach((sentence, sIdx) => {
         const sentenceDiv = document.createElement('div');
         sentenceDiv.className = "sentence-block flex flex-wrap items-baseline gap-y-2";
@@ -443,7 +394,6 @@
           const chunkKey = `${sIdx}-${cIdx}`;
           const isLastChunk = cIdx === sentence.chunks.length - 1;
 
-          // チャンクカード
           const chunkWrap = document.createElement('div');
           chunkWrap.className = "inline-flex flex-col mx-0.5 px-1.5 py-1 rounded-lg chunk-hover cursor-pointer";
           
@@ -454,7 +404,6 @@
             }
           };
 
-          // 英文
           const enSpan = document.createElement('span');
           enSpan.className = "font-medium select-none tracking-wide";
           
@@ -467,12 +416,11 @@
           enSpan.textContent = chunk.en;
           chunkWrap.appendChild(enSpan);
 
-          // 和訳表示制御
           let showJa = false;
           if (config.transMode === 'all') showJa = true;
           if (config.transMode === 'tap' && tappedChunks[chunkKey]) showJa = true;
 
-          if (showJa) {
+          if (showJa && chunk.ja) {
             const jaSpan = document.createElement('span');
             jaSpan.className = "text-xs text-indigo-600 font-normal mt-1 animate-pop tracking-normal";
             jaSpan.textContent = chunk.ja;
@@ -481,7 +429,6 @@
 
           sentenceDiv.appendChild(chunkWrap);
 
-          // スラッシュ
           if (config.showSlash && !isLastChunk) {
             const slashSpan = document.createElement('span');
             slashSpan.className = "text-indigo-300 font-light mx-1 select-none text-base";
@@ -494,47 +441,36 @@
       });
     }
 
-    // インポート実行
+    // ★ スマート・インポート処理（JSON・生の英文両対応）
     function handleImport() {
-      const title = document.getElementById('import-title').value.trim();
-      const jsonStr = document.getElementById('import-json').value.trim();
+      let inputVal = document.getElementById('import-text').value.trim();
+      let titleVal = document.getElementById('import-title').value.trim();
 
-      if (!title || !jsonStr) {
-        alert('タイトルとJSONデータの両方を入力してください。');
+      if (!inputVal) {
+        alert('英文を入力してください。');
         return;
       }
 
+      let parsedData = [];
+
+      // 1. JSON形式としてのパース試行
       try {
-        const parsedData = JSON.parse(jsonStr);
-        const newText = {
-          id: "text-" + Date.now(),
-          title: title,
-          data: parsedData
-        };
-
-        texts.push(newText);
-        currentTextId = newText.id;
-        saveToLocalStorage();
-
-        document.getElementById('import-title').value = '';
-        document.getElementById('import-json').value = '';
-        document.getElementById('modal-import').classList.add('hidden');
-
-        renderSidebar();
-        renderReader();
+        if (inputVal.startsWith('[') || inputVal.startsWith('{')) {
+          parsedData = JSON.parse(inputVal);
+        } else {
+          throw new Error("Not JSON");
+        }
       } catch (e) {
-        alert('JSON形式が正しくありません。LLMの出力をそのまま貼り付けてください。');
+        // 2. 生の英文として自動解析・チャンク変換
+        parsedData = parseRawTextToChunks(inputVal);
       }
-    }
 
-    // 削除実行
-    function handleDeleteText() {
-      texts = texts.filter(t => t.id !== currentTextId);
-      currentTextId = texts.length > 0 ? texts[0].id : null;
-      saveToLocalStorage();
-      renderSidebar();
-      renderReader();
-    }
-  </script>
-</body>
-</html>
+      if (!titleVal) {
+        // タイトル未入力時は先頭の単語から自動設定
+        titleVal = inputVal.slice(0, 20).replace(/[\r\n]+/g, ' ') + '...';
+      }
+
+      const newText = {
+        id: "text-" + Date.now(),
+        title: titleVal,
+        data: pa
