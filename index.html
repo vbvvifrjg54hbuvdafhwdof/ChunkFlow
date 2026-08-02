@@ -12,66 +12,62 @@
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
   
   <style>
-    body {
-      font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-    }
-    .chunk-hover {
-      transition: all 0.15s ease;
-    }
-    .chunk-hover:hover {
-      background-color: rgba(238, 242, 255, 0.7);
-      transform: translateY(-1px);
-    }
-    .animate-pop {
-      animation: pop 0.15s ease-out;
-    }
-    @keyframes pop {
-      0% { transform: scale(0.96); opacity: 0; }
-      100% { transform: scale(1); opacity: 1; }
-    }
+    body { font-family: 'Inter', sans-serif; }
+    .chunk-hover { transition: all 0.15s ease; }
+    .chunk-hover:hover { background-color: rgba(238, 242, 255, 0.8); transform: translateY(-1px); }
   </style>
 </head>
 <body class="bg-[#f8fafc] text-slate-800 min-h-screen flex flex-col">
 
   <!-- ヘッダー / ツールバー -->
-  <header class="bg-white/90 backdrop-blur-md border-b border-slate-200/80 sticky top-0 z-30 shadow-sm">
+  <header class="bg-white border-b border-slate-200/80 sticky top-0 z-30 shadow-sm">
     <div class="max-w-7xl mx-auto px-4 py-3 flex flex-wrap items-center justify-between gap-4">
       
-      <!-- ロゴ & モバイルメニュー -->
-      <div class="flex items-center space-x-3">
-        <button id="btn-toggle-sidebar" class="md:hidden text-slate-500 hover:text-slate-800 p-1.5 rounded-lg hover:bg-slate-100 transition">
-          <i class="fa-solid fa-bars text-lg"></i>
-        </button>
-        <div class="flex items-center gap-2.5">
-          <div class="w-9 h-9 bg-indigo-600 rounded-xl flex items-center justify-center text-white shadow-md shadow-indigo-200">
-            <i class="fa-solid fa-book-open text-base"></i>
+      <!-- ロゴ & 画面切り替えタブ -->
+      <div class="flex items-center space-x-4">
+        <div class="flex items-center gap-2">
+          <div class="w-9 h-9 bg-indigo-600 rounded-xl flex items-center justify-center text-white shadow-md shadow-indigo-100">
+            <i class="fa-solid fa-book-open text-sm"></i>
           </div>
-          <h1 class="text-xl font-bold tracking-tight text-slate-800">ChunkReader</h1>
+          <h1 class="text-xl font-bold tracking-tight text-slate-800 hidden sm:block">ChunkReader</h1>
         </div>
+
+        <!-- 画面切替ナビゲーション -->
+        <nav class="flex bg-slate-100 p-1 rounded-xl text-xs font-semibold">
+          <button id="nav-reader" class="px-3.5 py-1.5 rounded-lg transition bg-white text-indigo-600 shadow-sm">
+            <i class="fa-solid fa-book-reader mr-1"></i> 読解
+          </button>
+          <button id="nav-import" class="px-3.5 py-1.5 rounded-lg transition text-slate-600 hover:text-slate-900">
+            <i class="fa-solid fa-plus mr-1"></i> JSON追加
+          </button>
+          <button id="nav-list" class="px-3.5 py-1.5 rounded-lg transition text-slate-600 hover:text-slate-900 md:hidden">
+            <i class="fa-solid fa-list mr-1"></i> 一覧
+          </button>
+        </nav>
       </div>
 
-      <!-- 表示コントロール -->
-      <div class="flex flex-wrap items-center gap-2 sm:gap-3 bg-slate-100/80 p-1.5 rounded-2xl border border-slate-200/60 shadow-inner">
+      <!-- 表示コントロール（読解画面用） -->
+      <div id="toolbar-controls" class="flex flex-wrap items-center gap-2 sm:gap-3 bg-slate-100/80 p-1.5 rounded-2xl border border-slate-200/60 shadow-inner">
         
         <!-- スラッシュ ON/OFF -->
-        <button id="toggle-slash" class="px-3.5 py-1.5 rounded-xl font-semibold text-xs transition-all flex items-center gap-1.5">
+        <button id="toggle-slash" class="px-3.5 py-1.5 rounded-xl font-semibold text-xs transition flex items-center gap-1.5 bg-white text-slate-800 shadow-sm">
           <span class="text-sm font-bold text-indigo-500">/</span> スラッシュ
         </button>
 
         <!-- 赤字ハイライト ON/OFF -->
-        <button id="toggle-highlight" class="px-3.5 py-1.5 rounded-xl font-semibold text-xs transition-all flex items-center gap-1.5">
+        <button id="toggle-highlight" class="px-3.5 py-1.5 rounded-xl font-semibold text-xs transition flex items-center gap-1.5 bg-white text-slate-800 shadow-sm">
           <span class="w-2 h-2 rounded-full bg-rose-500 inline-block"></span> 重要語
         </button>
 
         <!-- 和訳モード切替 -->
         <div class="flex bg-slate-200/70 p-0.5 rounded-xl text-xs font-semibold">
-          <button id="mode-tap" class="px-3 py-1.5 rounded-lg transition-all">タップ表示</button>
-          <button id="mode-all" class="px-3 py-1.5 rounded-lg transition-all text-slate-500 hover:text-slate-800">全表示</button>
-          <button id="mode-none" class="px-3 py-1.5 rounded-lg transition-all text-slate-500 hover:text-slate-800">非表示</button>
+          <button id="mode-tap" class="px-3 py-1.5 rounded-lg transition bg-white text-indigo-600 shadow-sm">タップ表示</button>
+          <button id="mode-all" class="px-3 py-1.5 rounded-lg transition text-slate-500 hover:text-slate-800">全表示</button>
+          <button id="mode-none" class="px-3 py-1.5 rounded-lg transition text-slate-500 hover:text-slate-800">非表示</button>
         </div>
 
         <!-- 白文（Raw）モード -->
-        <button id="toggle-raw" class="px-3.5 py-1.5 rounded-xl font-semibold text-xs transition-all flex items-center gap-1.5 border border-slate-200 text-slate-600 hover:bg-white">
+        <button id="toggle-raw" class="px-3.5 py-1.5 rounded-xl font-semibold text-xs transition flex items-center gap-1.5 border border-slate-200 text-slate-600 hover:bg-white">
           <i class="fa-solid fa-leaf text-emerald-500 text-xs"></i> 白文
         </button>
       </div>
@@ -82,90 +78,93 @@
   <!-- メインレイアウト -->
   <div class="flex-1 flex max-w-7xl w-full mx-auto">
     
-    <!-- サイドバー：登録英文一覧 -->
-    <aside id="sidebar" class="w-80 bg-white border-r border-slate-200/80 flex-shrink-0 flex flex-col justify-between hidden md:flex transition-all">
+    <!-- サイドバー：登録英文一覧 (PC用) -->
+    <aside id="sidebar" class="w-72 bg-white border-r border-slate-200/80 flex-shrink-0 flex-col justify-between hidden md:flex">
       <div class="p-5">
-        <button id="btn-open-import" class="w-full py-3 px-4 bg-indigo-600 hover:bg-indigo-700 active:scale-[0.98] text-white font-semibold text-sm rounded-xl shadow-md shadow-indigo-100 transition-all flex items-center justify-center gap-2">
-          <i class="fa-solid fa-plus text-xs"></i> 新しい英文を追加
+        <button id="btn-sidebar-add" class="w-full py-3 px-4 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold text-sm rounded-xl shadow-md shadow-indigo-100 transition flex items-center justify-center gap-2 mb-6">
+          <i class="fa-solid fa-plus text-xs"></i> 新しいJSONを追加
         </button>
 
-        <div class="mt-8">
-          <h2 class="text-[11px] font-bold text-slate-400 uppercase tracking-wider px-2 mb-3">マイライブラリ</h2>
-          <ul id="text-list" class="space-y-1.5">
-            <!-- 英文リスト -->
-          </ul>
-        </div>
+        <h2 class="text-[11px] font-bold text-slate-400 uppercase tracking-wider px-2 mb-3">ライブラリ</h2>
+        <ul id="text-list" class="space-y-1">
+          <!-- 英文リスト -->
+        </ul>
       </div>
       <div class="p-4 border-t border-slate-100 text-[11px] text-slate-400 text-center font-medium">
-        データはブラウザ内に自動保存されます
+        データはブラウザ内に保存されます
       </div>
     </aside>
 
-    <!-- メイン読解エリア -->
+    <!-- メイン表示領域 -->
     <main class="flex-1 p-4 md:p-8 overflow-y-auto">
-      <div class="max-w-4xl mx-auto bg-white rounded-3xl p-6 md:p-12 shadow-sm border border-slate-200/60 min-h-[550px] flex flex-col justify-between">
-        
+
+      <!-- VIEW 1: 読解画面 -->
+      <section id="view-reader" class="max-w-4xl mx-auto bg-white rounded-3xl p-6 md:p-12 shadow-sm border border-slate-200/60 min-h-[550px] flex flex-col justify-between">
         <div>
-          <!-- 文章ヘッダー -->
           <div class="flex items-center justify-between border-b border-slate-100 pb-5 mb-8">
-            <h2 id="current-title" class="text-xl md:text-2xl font-bold text-slate-800 tracking-tight">
-              <!-- タイトル -->
-            </h2>
-            <button id="btn-open-delete" class="w-9 h-9 rounded-xl flex items-center justify-center text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition" title="この文章を削除">
+            <h2 id="current-title" class="text-xl md:text-2xl font-bold text-slate-800 tracking-tight"></h2>
+            <button id="btn-open-delete" class="w-9 h-9 rounded-xl flex items-center justify-center text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition" title="削除">
               <i class="fa-solid fa-trash-can text-sm"></i>
             </button>
           </div>
 
-          <!-- 英文表示領域 -->
           <div id="reader-content" class="space-y-8 text-lg md:text-xl leading-relaxed">
-            <!-- チャンクコンテンツ -->
+            <!-- チャンクテキスト描画エリア -->
           </div>
         </div>
 
-        <!-- 空状態のプレースホルダー -->
         <div id="empty-state" class="hidden text-center py-20">
           <i class="fa-solid fa-folder-open text-4xl text-slate-300 mb-3"></i>
-          <p class="text-slate-500 font-medium">文章がありません</p>
+          <p class="text-slate-500 font-medium">文章がありません。「JSON追加」から追加してください。</p>
+        </div>
+      </section>
+
+      <!-- VIEW 2: JSON追加画面 (画面全体を使った専用フォーム) -->
+      <section id="view-import" class="max-w-3xl mx-auto bg-white rounded-3xl p-6 md:p-10 shadow-sm border border-slate-200/60 hidden space-y-6">
+        <div class="border-b border-slate-100 pb-4">
+          <h2 class="text-xl font-bold text-slate-800">新しい英文（JSON）を登録</h2>
+          <p class="text-xs text-slate-500 mt-1">LLM（ChatGPTやGeminiなど）が出力したJSONコードを貼り付けてください。</p>
         </div>
 
-      </div>
+        <div class="space-y-4">
+          <div>
+            <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">タイトル（任意）</label>
+            <input type="text" id="import-title" placeholder="例: 今日のニュース解説" class="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition">
+          </div>
+
+          <div>
+            <div class="flex items-center justify-between mb-2">
+              <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider">JSONコード</label>
+              <button id="btn-paste-clipboard" type="button" class="text-xs font-semibold text-indigo-600 hover:text-indigo-800 flex items-center gap-1 px-2 py-1 bg-indigo-50 rounded-lg transition">
+                <i class="fa-solid fa-paste"></i> クリップボードから貼り付け
+              </button>
+            </div>
+            <textarea id="import-json" rows="12" placeholder='[&#10;  {&#10;    "sentence_id": 1,&#10;    "chunks": [ ... ]&#10;  }&#10;]' class="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl font-mono text-xs focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition"></textarea>
+          </div>
+
+          <!-- エラー表示エリア -->
+          <div id="import-error" class="hidden p-3 bg-rose-50 border border-rose-200 rounded-xl text-xs text-rose-600 font-medium"></div>
+        </div>
+
+        <div class="flex justify-end gap-3 pt-2">
+          <button id="btn-cancel-import" type="button" class="px-6 py-2.5 rounded-xl border border-slate-200 text-slate-600 hover:bg-slate-50 text-sm font-semibold transition">キャンセル</button>
+          <button id="btn-save-import" type="button" class="px-6 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold shadow-md shadow-indigo-100 transition">登録して読む</button>
+        </div>
+      </section>
+
+      <!-- VIEW 3: モバイル用ライブラリ一覧画面 -->
+      <section id="view-list" class="max-w-xl mx-auto bg-white rounded-3xl p-6 shadow-sm border border-slate-200/60 hidden md:hidden space-y-4">
+        <h2 class="text-lg font-bold text-slate-800 border-b border-slate-100 pb-3">保存した英文一覧</h2>
+        <ul id="mobile-text-list" class="space-y-2"></ul>
+      </section>
+
     </main>
 
   </div>
 
-  <!-- 【モーダル 1】インポート画面 (生英文 / JSON 共通) -->
-  <div id="modal-import" class="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-50 flex items-center justify-center hidden p-4">
-    <div class="bg-white rounded-3xl max-w-xl w-full p-6 md:p-8 shadow-2xl border border-slate-100 space-y-5 animate-pop">
-      <div class="flex items-center justify-between">
-        <h3 class="text-lg font-bold text-slate-800 tracking-tight">新しい英文を追加</h3>
-        <button id="btn-close-import" class="w-8 h-8 rounded-full flex items-center justify-center text-slate-400 hover:bg-slate-100 transition">
-          <i class="fa-solid fa-xmark"></i>
-        </button>
-      </div>
-
-      <div class="space-y-4">
-        <div>
-          <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">タイトル（省略可）</label>
-          <input type="text" id="import-title" placeholder="例: 今日のニュース" class="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 text-sm font-medium transition">
-        </div>
-        <div>
-          <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">
-            英文（生の英文・LLMのJSONどちらでも貼り付け可能）
-          </label>
-          <textarea id="import-text" rows="7" placeholder="生の英文をそのまま貼り付けるか、LLMが出力したJSONコードを貼り付けてください。" class="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition"></textarea>
-        </div>
-      </div>
-
-      <div class="flex justify-end gap-3 pt-2">
-        <button id="btn-cancel-import" class="px-5 py-2.5 rounded-xl text-slate-600 hover:bg-slate-100 text-sm font-semibold transition">キャンセル</button>
-        <button id="btn-save-import" class="px-5 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold shadow-md shadow-indigo-100 transition">登録する</button>
-      </div>
-    </div>
-  </div>
-
-  <!-- 【モーダル 2】二重確認用 削除ダイアログ -->
+  <!-- 【二重確認ダイアログ】削除確認 -->
   <div id="modal-delete" class="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-50 flex items-center justify-center hidden p-4">
-    <div class="bg-white rounded-3xl max-w-md w-full p-6 md:p-8 shadow-2xl border border-slate-100 space-y-6 animate-pop text-center">
+    <div class="bg-white rounded-3xl max-w-md w-full p-6 md:p-8 shadow-2xl border border-slate-100 space-y-6 text-center">
       <div class="w-12 h-12 bg-rose-50 text-rose-500 rounded-2xl flex items-center justify-center mx-auto text-xl">
         <i class="fa-solid fa-triangle-exclamation"></i>
       </div>
@@ -183,7 +182,7 @@
 
   <!-- アプリJSロジック -->
   <script>
-    // 初期サンプルデータ
+    // サンプルJSONデータ
     const SAMPLE_DATA = {
       id: "sample-1",
       title: "サンプル：AIと将来の仕事",
@@ -233,7 +232,7 @@
     let tappedChunks = {};
 
     document.addEventListener('DOMContentLoaded', () => {
-      const stored = localStorage.getItem('chunk_reader_texts_v3');
+      const stored = localStorage.getItem('chunk_reader_texts_v4');
       if (stored) {
         texts = JSON.parse(stored);
       } else {
@@ -245,14 +244,58 @@
       setupEventListeners();
       updateToggleStyles();
       renderSidebar();
-      renderReader();
+      switchView('reader');
     });
 
     function saveToLocalStorage() {
-      localStorage.setItem('chunk_reader_texts_v3', JSON.stringify(texts));
+      localStorage.setItem('chunk_reader_texts_v4', JSON.stringify(texts));
+    }
+
+    // 画面ビュー切替（reader, import, list）
+    function switchView(viewName) {
+      document.getElementById('view-reader').classList.toggle('hidden', viewName !== 'reader');
+      document.getElementById('view-import').classList.toggle('hidden', viewName !== 'import');
+      document.getElementById('view-list').classList.toggle('hidden', viewName !== 'list');
+
+      // ツールバーは読解画面の時のみ表示
+      document.getElementById('toolbar-controls').style.visibility = (viewName === 'reader') ? 'visible' : 'hidden';
+
+      // ナビボタンのハイライト
+      document.getElementById('nav-reader').className = viewName === 'reader'
+        ? "px-3.5 py-1.5 rounded-lg transition bg-white text-indigo-600 shadow-sm font-bold"
+        : "px-3.5 py-1.5 rounded-lg transition text-slate-600 hover:text-slate-900";
+
+      document.getElementById('nav-import').className = viewName === 'import'
+        ? "px-3.5 py-1.5 rounded-lg transition bg-white text-indigo-600 shadow-sm font-bold"
+        : "px-3.5 py-1.5 rounded-lg transition text-slate-600 hover:text-slate-900";
+
+      document.getElementById('nav-list').className = viewName === 'list'
+        ? "px-3.5 py-1.5 rounded-lg transition bg-white text-indigo-600 shadow-sm font-bold md:hidden"
+        : "px-3.5 py-1.5 rounded-lg transition text-slate-600 hover:text-slate-900 md:hidden";
+
+      if (viewName === 'reader') renderReader();
+      if (viewName === 'list') renderMobileList();
     }
 
     function setupEventListeners() {
+      // ナビゲーション
+      document.getElementById('nav-reader').onclick = () => switchView('reader');
+      document.getElementById('nav-import').onclick = () => switchView('import');
+      document.getElementById('nav-list').onclick = () => switchView('list');
+      document.getElementById('btn-sidebar-add').onclick = () => switchView('import');
+      document.getElementById('btn-cancel-import').onclick = () => switchView('reader');
+
+      // クリップボードからの自動貼り付けボタン
+      document.getElementById('btn-paste-clipboard').onclick = async () => {
+        try {
+          const text = await navigator.clipboard.readText();
+          document.getElementById('import-json').value = text;
+        } catch (err) {
+          alert('クリップボードの読み取り権限がないか、対応していません。手動でテキストエリアに貼り付けてください。');
+        }
+      };
+
+      // トグル
       document.getElementById('toggle-slash').onclick = () => {
         config.showSlash = !config.showSlash;
         updateToggleStyles();
@@ -280,12 +323,10 @@
         };
       });
 
-      const modalImport = document.getElementById('modal-import');
-      document.getElementById('btn-open-import').onclick = () => modalImport.classList.remove('hidden');
-      document.getElementById('btn-close-import').onclick = () => modalImport.classList.add('hidden');
-      document.getElementById('btn-cancel-import').onclick = () => modalImport.classList.add('hidden');
-      document.getElementById('btn-save-import').onclick = handleImport;
+      // JSON登録
+      document.getElementById('btn-save-import').onclick = handleSaveImport;
 
+      // 削除ダイアログ
       const modalDelete = document.getElementById('modal-delete');
       document.getElementById('btn-open-delete').onclick = () => {
         const activeText = texts.find(t => t.id === currentTextId);
@@ -298,38 +339,30 @@
         modalDelete.classList.add('hidden');
         handleDeleteText();
       };
-
-      document.getElementById('btn-toggle-sidebar').onclick = () => {
-        const sidebar = document.getElementById('sidebar');
-        sidebar.classList.toggle('hidden');
-        sidebar.classList.toggle('absolute');
-        sidebar.classList.toggle('z-40');
-        sidebar.classList.toggle('h-full');
-      };
     }
 
     function updateToggleStyles() {
       const slashBtn = document.getElementById('toggle-slash');
       slashBtn.className = config.showSlash
-        ? "px-3.5 py-1.5 rounded-xl font-semibold text-xs transition-all bg-white text-slate-800 shadow-sm border border-slate-200/80"
-        : "px-3.5 py-1.5 rounded-xl font-semibold text-xs transition-all text-slate-400 hover:text-slate-600";
+        ? "px-3.5 py-1.5 rounded-xl font-semibold text-xs transition bg-white text-slate-800 shadow-sm border border-slate-200/80"
+        : "px-3.5 py-1.5 rounded-xl font-semibold text-xs transition text-slate-400 hover:text-slate-600";
 
       const hlBtn = document.getElementById('toggle-highlight');
       hlBtn.className = config.showHighlight
-        ? "px-3.5 py-1.5 rounded-xl font-semibold text-xs transition-all bg-white text-slate-800 shadow-sm border border-slate-200/80"
-        : "px-3.5 py-1.5 rounded-xl font-semibold text-xs transition-all text-slate-400 hover:text-slate-600";
+        ? "px-3.5 py-1.5 rounded-xl font-semibold text-xs transition bg-white text-slate-800 shadow-sm border border-slate-200/80"
+        : "px-3.5 py-1.5 rounded-xl font-semibold text-xs transition text-slate-400 hover:text-slate-600";
 
       const rawBtn = document.getElementById('toggle-raw');
       rawBtn.className = config.isRaw
-        ? "px-3.5 py-1.5 rounded-xl font-semibold text-xs transition-all bg-emerald-500 text-white shadow-md shadow-emerald-100"
-        : "px-3.5 py-1.5 rounded-xl font-semibold text-xs transition-all border border-slate-200 text-slate-600 hover:bg-white";
+        ? "px-3.5 py-1.5 rounded-xl font-semibold text-xs transition bg-emerald-500 text-white shadow-md shadow-emerald-100"
+        : "px-3.5 py-1.5 rounded-xl font-semibold text-xs transition border border-slate-200 text-slate-600 hover:bg-white";
 
       ['tap', 'all', 'none'].forEach(mode => {
         const btn = document.getElementById(`mode-${mode}`);
         if (config.transMode === mode) {
-          btn.className = "px-3 py-1.5 rounded-lg transition-all bg-white text-indigo-600 font-bold shadow-sm";
+          btn.className = "px-3 py-1.5 rounded-lg transition bg-white text-indigo-600 font-bold shadow-sm";
         } else {
-          btn.className = "px-3 py-1.5 rounded-lg transition-all text-slate-500 hover:text-slate-800 font-medium";
+          btn.className = "px-3 py-1.5 rounded-lg transition text-slate-500 hover:text-slate-800 font-medium";
         }
       });
     }
@@ -341,7 +374,7 @@
       texts.forEach(t => {
         const li = document.createElement('li');
         const isActive = t.id === currentTextId;
-        li.className = `px-3.5 py-3 rounded-2xl cursor-pointer text-xs font-semibold transition-all flex items-center justify-between ${
+        li.className = `px-3.5 py-3 rounded-2xl cursor-pointer text-xs font-semibold transition flex items-center justify-between ${
           isActive ? 'bg-indigo-50/80 text-indigo-700 shadow-sm border border-indigo-100' : 'text-slate-600 hover:bg-slate-50'
         }`;
         li.innerHTML = `
@@ -352,9 +385,29 @@
           currentTextId = t.id;
           tappedChunks = {};
           renderSidebar();
-          renderReader();
+          switchView('reader');
         };
         textListEl.appendChild(li);
+      });
+    }
+
+    function renderMobileList() {
+      const mobileListEl = document.getElementById('mobile-text-list');
+      mobileListEl.innerHTML = '';
+      texts.forEach(t => {
+        const li = document.createElement('li');
+        const isActive = t.id === currentTextId;
+        li.className = `p-4 rounded-2xl border text-sm font-semibold flex justify-between items-center ${
+          isActive ? 'border-indigo-500 bg-indigo-50 text-indigo-700' : 'border-slate-200 bg-slate-50 text-slate-700'
+        }`;
+        li.textContent = t.title;
+        li.onclick = () => {
+          currentTextId = t.id;
+          tappedChunks = {};
+          renderSidebar();
+          switchView('reader');
+        };
+        mobileListEl.appendChild(li);
       });
     }
 
@@ -422,7 +475,7 @@
 
           if (showJa && chunk.ja) {
             const jaSpan = document.createElement('span');
-            jaSpan.className = "text-xs text-indigo-600 font-normal mt-1 animate-pop tracking-normal";
+            jaSpan.className = "text-xs text-indigo-600 font-normal mt-1 tracking-normal";
             jaSpan.textContent = chunk.ja;
             chunkWrap.appendChild(jaSpan);
           }
@@ -441,36 +494,65 @@
       });
     }
 
-    // ★ スマート・インポート処理（JSON・生の英文両対応）
-    function handleImport() {
-      let inputVal = document.getElementById('import-text').value.trim();
-      let titleVal = document.getElementById('import-title').value.trim();
+    // 厳格なJSON登録処理
+    function handleSaveImport() {
+      const errorEl = document.getElementById('import-error');
+      errorEl.classList.add('hidden');
 
-      if (!inputVal) {
-        alert('英文を入力してください。');
+      const jsonStr = document.getElementById('import-json').value.trim();
+      let titleStr = document.getElementById('import-title').value.trim();
+
+      if (!jsonStr) {
+        showError('JSONコードが入力されていません。');
         return;
       }
 
-      let parsedData = [];
-
-      // 1. JSON形式としてのパース試行
       try {
-        if (inputVal.startsWith('[') || inputVal.startsWith('{')) {
-          parsedData = JSON.parse(inputVal);
-        } else {
-          throw new Error("Not JSON");
+        const parsed = JSON.parse(jsonStr);
+
+        // 基本構造チェック
+        if (!Array.isArray(parsed) || parsed.length === 0 || !parsed[0].chunks) {
+          throw new Error('LLMの出力フォーマット（JSON配列）と異なります。');
         }
-      } catch (e) {
-        // 2. 生の英文として自動解析・チャンク変換
-        parsedData = parseRawTextToChunks(inputVal);
-      }
 
-      if (!titleVal) {
-        // タイトル未入力時は先頭の単語から自動設定
-        titleVal = inputVal.slice(0, 20).replace(/[\r\n]+/g, ' ') + '...';
-      }
+        if (!titleStr) {
+          titleStr = `英文テキスト ${texts.length + 1}`;
+        }
 
-      const newText = {
-        id: "text-" + Date.now(),
-        title: titleVal,
-        data: pa
+        const newText = {
+          id: "text-" + Date.now(),
+          title: titleStr,
+          data: parsed
+        };
+
+        texts.push(newText);
+        currentTextId = newText.id;
+        saveToLocalStorage();
+
+        // フォームリセット＆読解画面に遷移
+        document.getElementById('import-title').value = '';
+        document.getElementById('import-json').value = '';
+        renderSidebar();
+        switchView('reader');
+
+      } catch (err) {
+        showError('JSONコードの解析に失敗しました。ChatGPT等の出力をそのまま貼り付けてください。');
+      }
+    }
+
+    function showError(msg) {
+      const errorEl = document.getElementById('import-error');
+      errorEl.textContent = msg;
+      errorEl.classList.remove('hidden');
+    }
+
+    function handleDeleteText() {
+      texts = texts.filter(t => t.id !== currentTextId);
+      currentTextId = texts.length > 0 ? texts[0].id : null;
+      saveToLocalStorage();
+      renderSidebar();
+      switchView('reader');
+    }
+  </script>
+</body>
+</html>
