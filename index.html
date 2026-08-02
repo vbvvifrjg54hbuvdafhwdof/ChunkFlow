@@ -24,35 +24,52 @@
     .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
     
     .chunk-touch {
-      transition: background-color 0.1s ease, transform 0.1s ease;
+      transition: background-color 0.1s ease;
     }
     .chunk-touch:active {
       background-color: #e0e7ff !important;
-      transform: scale(0.97);
     }
 
-    /* ★ 和訳表示で英文が改行・ズレを起こさない固定幅設計 */
+    /* ★ 英文の改行・位置ズレを100%防止するレイアウト設計 */
+    .sentence-block {
+      display: block;
+      margin-bottom: 1rem;
+      word-break: break-word;
+    }
+
     .chunk-box {
-      display: inline-flex;
-      flex-direction: column;
-      align-items: flex-start;
-      margin: 2px 2px;
-      vertical-align: top;
-      max-width: max-content;
+      position: relative;
+      display: inline-block;
+      vertical-align: baseline;
+      margin: 0 1px;
+      padding: 2px 4px;
+      border-radius: 6px;
     }
+
     .chunk-en {
-      white-space: nowrap; /* 英文チャンクは1行に固定 */
+      display: inline;
+      white-space: nowrap;
     }
+
+    /* 和訳を絶対配置にし、親要素（英文）のサイズ変更を一切発生させない */
     .chunk-ja {
+      position: absolute;
+      left: 4px;
+      top: 1.45em;
       font-size: 0.65rem;
-      line-height: 1.15;
+      line-height: 1.1;
       color: #4f46e5;
-      margin-top: 2px;
-      /* 和訳が英文幅を超えてレイアウトを押し広げない制限 */
-      width: 100%;
-      max-width: 100%;
-      word-break: break-all;
-      white-space: normal;
+      white-space: nowrap;
+      pointer-events: none;
+      z-index: 10;
+    }
+
+    .slash-mark {
+      display: inline-block;
+      color: #a5b4fc;
+      font-weight: 300;
+      margin: 0 3px;
+      user-select: none;
     }
   </style>
 </head>
@@ -65,7 +82,6 @@
       <!-- タイトル & ブランドアイコン -->
       <div class="flex items-center justify-between">
         <div class="flex items-center gap-2">
-          <!-- 紫背景 + 白い開いた本アイコン -->
           <div class="w-8 h-8 bg-indigo-600 rounded-xl flex items-center justify-center text-white shadow-md shadow-indigo-100">
             <i class="fa-solid fa-book-open text-xs"></i>
           </div>
@@ -112,7 +128,7 @@
         </div>
 
         <!-- 英文チャンク表示領域 -->
-        <div id="reader-content" class="space-y-6 text-base md:text-lg leading-relaxed"></div>
+        <div id="reader-content" class="text-base md:text-lg"></div>
       </div>
 
       <div id="empty-state" class="hidden text-center py-16">
@@ -121,19 +137,16 @@
       </div>
     </section>
 
-    <!-- VIEW 2: ライブラリ画面 (バックアップ機能追加) -->
+    <!-- VIEW 2: ライブラリ画面 -->
     <section id="view-library" class="bg-white rounded-2xl p-4 md:p-6 shadow-sm border border-slate-200/60 hidden space-y-5">
-      
-      <!-- ヘッダー & バックアップボタン -->
       <div class="flex flex-wrap items-center justify-between border-b border-slate-100 pb-3 gap-2">
         <h2 class="text-base font-bold text-slate-800">ライブラリ</h2>
         
         <div class="flex items-center gap-1.5">
-          <!-- データ入出力 -->
-          <button id="btn-export-data" class="py-1 px-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold text-xs rounded-lg transition flex items-center gap-1" title="データを保存">
+          <button id="btn-export-data" class="py-1 px-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold text-xs rounded-lg transition flex items-center gap-1">
             <i class="fa-solid fa-download text-indigo-500"></i> バックアップ
           </button>
-          <button id="btn-import-data" class="py-1 px-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold text-xs rounded-lg transition flex items-center gap-1" title="データを復元">
+          <button id="btn-import-data" class="py-1 px-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold text-xs rounded-lg transition flex items-center gap-1">
             <i class="fa-solid fa-upload text-emerald-500"></i> 復元
           </button>
           <input type="file" id="file-input-backup" accept=".json" class="hidden">
@@ -203,7 +216,7 @@
     </button>
   </nav>
 
-  <!-- 【モーダル 1】フォルダ作成ダイアログ -->
+  <!-- モーダル類 -->
   <div id="modal-folder" class="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-50 flex items-center justify-center hidden p-4">
     <div class="bg-white rounded-2xl max-w-xs w-full p-5 shadow-2xl border border-slate-100 space-y-3">
       <h3 id="modal-folder-title" class="text-sm font-bold text-slate-800">新しいフォルダを作成</h3>
@@ -215,7 +228,6 @@
     </div>
   </div>
 
-  <!-- 【モーダル 2】削除二重確認ダイアログ -->
   <div id="modal-delete" class="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-50 flex items-center justify-center hidden p-4">
     <div class="bg-white rounded-2xl max-w-xs w-full p-5 shadow-2xl border border-slate-100 space-y-4 text-center">
       <div class="w-10 h-10 bg-rose-50 text-rose-500 rounded-xl flex items-center justify-center mx-auto text-lg">
@@ -373,9 +385,7 @@
       document.getElementById('btn-cancel-folder').onclick = closeFolderModal;
       document.getElementById('btn-save-folder').onclick = handleSaveFolder;
 
-      // バックアップ（エクスポート）
       document.getElementById('btn-export-data').onclick = handleExportData;
-      // 復元（インポート）
       document.getElementById('btn-import-data').onclick = () => document.getElementById('file-input-backup').click();
       document.getElementById('file-input-backup').onchange = handleImportBackupFile;
 
@@ -573,6 +583,7 @@
       headerFolderTag.textContent = getFolderPath(activeText.folderId);
       readerContent.innerHTML = '';
 
+      // 白文モード
       if (config.isRaw) {
         const p = document.createElement('p');
         p.className = "text-slate-800 leading-relaxed font-normal tracking-wide";
@@ -584,17 +595,22 @@
         return;
       }
 
+      // 通常モード（和訳表示時に行高さを調整して重なりを防止）
+      const hasTranslations = config.transMode === 'all' || (config.transMode === 'tap' && Object.keys(tappedChunks).length > 0);
+
       activeText.data.forEach((sentence, sIdx) => {
         const sentenceDiv = document.createElement('div');
-        sentenceDiv.className = "sentence-block flex flex-wrap items-baseline gap-y-2";
+        sentenceDiv.className = "sentence-block";
+        // 和訳が表示されている場合は行間を広げる
+        sentenceDiv.style.lineHeight = hasTranslations ? '2.8' : '2.0';
 
         sentence.chunks.forEach((chunk, cIdx) => {
           const chunkKey = `${sIdx}-${cIdx}`;
           const isLastChunk = cIdx === sentence.chunks.length - 1;
 
-          // ★ chunk-box クラスでレイアウト崩れ（改行移動）を完全防止
+          // ★ chunk-box クラスで英文枠幅を完全固定
           const chunkWrap = document.createElement('div');
-          chunkWrap.className = "chunk-box chunk-touch rounded-lg px-1 py-0.5 cursor-pointer";
+          chunkWrap.className = "chunk-box chunk-touch cursor-pointer";
           
           chunkWrap.onclick = () => {
             if (config.transMode === 'tap') {
@@ -630,6 +646,7 @@
 
           chunkWrap.appendChild(enSpan);
 
+          // 和訳制御
           let showJa = false;
           if (config.transMode === 'all') showJa = true;
           if (config.transMode === 'tap' && tappedChunks[chunkKey]) showJa = true;
@@ -643,9 +660,10 @@
 
           sentenceDiv.appendChild(chunkWrap);
 
+          // スラッシュ記号
           if (config.showSlash && !isLastChunk) {
             const slashSpan = document.createElement('span');
-            slashSpan.className = "text-indigo-300 font-light mx-1 select-none text-base";
+            slashSpan.className = "slash-mark";
             slashSpan.textContent = "/";
             sentenceDiv.appendChild(slashSpan);
           }
@@ -765,7 +783,6 @@
       renderReader();
     }
 
-    // ★ データのエクスポート（ダウンロード）
     function handleExportData() {
       const backupData = {
         version: "5.0",
@@ -783,7 +800,6 @@
       downloadAnchor.remove();
     }
 
-    // ★ データのインポート（復元）
     function handleImportBackupFile(e) {
       const file = e.target.files[0];
       if (!file) return;
