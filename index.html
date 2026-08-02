@@ -15,7 +15,7 @@
   <!-- インライン Web App Manifest -->
   <link rel="manifest" href='data:application/manifest+json,{"name":"ChunkReader - スラッシュリーディング","short_name":"ChunkReader","start_url":".","display":"standalone","background_color":"#f8fafc","theme_color":"#4f46e5","icons":[{"src":"data:image/svg+xml,<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 100 100\"><rect width=\"100\" height=\"100\" rx=\"28\" fill=\"%234f46e5\"/><path d=\"M25 38 C35 32, 45 37, 50 42 C55 37, 65 32, 75 38 L75 68 C65 62, 55 67, 50 72 C45 67, 35 62, 25 68 Z\" fill=\"none\" stroke=\"white\" stroke-width=\"6\" stroke-linejoin=\"round\"/><line x1=\"50\" y1=\"42\" x2=\"50\" y2=\"72\" stroke=\"white\" stroke-width=\"6\"/></svg>","sizes":"512x512","type":"image/svg+xml"}]}'>
 
-  <!-- SVG Favicon (紫の丸角背景 + 白い開いた本) -->
+  <!-- SVG Favicon -->
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='28' fill='%234f46e5'/><path d='M25 38 C35 32, 45 37, 50 42 C55 37, 65 32, 75 38 L75 68 C65 62, 55 67, 50 72 C45 67, 35 62, 25 68 Z' fill='none' stroke='white' stroke-width='6' stroke-linejoin='round'/><line x1='50' y1='42' x2='50' y2='72' stroke='white' stroke-width='6'/></svg>">
 
   <!-- Tailwind CSS -->
@@ -40,7 +40,7 @@
       background-color: #e0e7ff !important;
     }
 
-    /* 英文と和訳を超密着させ、次の英文行を押し下げる見やすさ重視CSS */
+    /* 英文と和訳を超密着させ、次の英文行を押し下げる構造 */
     .sentence-block {
       display: block !important;
       margin-bottom: 1.2rem !important;
@@ -121,7 +121,7 @@
             <i class="fa-solid fa-book-open text-xs"></i>
           </div>
           <h1 class="text-base font-bold tracking-tight text-slate-800">ChunkReader</h1>
-          <!-- PWAインストールボタン（ブラウザ対応時に自動表示） -->
+          <!-- PWAインストールボタン（対応環境で自動表示） -->
           <button id="btn-pwa-install" class="hidden px-2 py-0.5 bg-indigo-600 hover:bg-indigo-700 text-white text-[10px] font-bold rounded-lg shadow-sm transition flex items-center gap-1 active:scale-95">
             <i class="fa-solid fa-download"></i> アプリ化
           </button>
@@ -285,7 +285,7 @@
 
   <!-- アプリJSロジック -->
   <script>
-    // PWA Service Worker の登録
+    // PWA Service Worker 登録
     if ('serviceWorker' in navigator) {
       const swCode = `
         self.addEventListener('install', (e) => self.skipWaiting());
@@ -373,8 +373,11 @@
     let currentTextId = null;
     let targetParentFolderId = null;
     let deleteTarget = null;
-    let expandedFolderIds = new Set(); // 開いているフォルダのID集合
+    let expandedFolderIds = new Set();
     let isTreeInit = false;
+
+    // 前回選択したフォルダIDの記憶
+    let lastFolderId = localStorage.getItem('chunk_reader_last_folder_v5') || "";
 
     let config = {
       showSlash: true,
@@ -445,7 +448,6 @@
     }
 
     function setupEventListeners() {
-      // PWAインストールボタンクリック
       document.getElementById('btn-pwa-install').onclick = async () => {
         if (deferredPrompt) {
           deferredPrompt.prompt();
@@ -469,6 +471,12 @@
       document.getElementById('btn-export-data').onclick = handleExportData;
       document.getElementById('btn-import-data').onclick = () => document.getElementById('file-input-backup').click();
       document.getElementById('file-input-backup').onchange = handleImportBackupFile;
+
+      // フォルダ手動選択の変更イベントを監視
+      document.getElementById('import-folder-select').onchange = (e) => {
+        lastFolderId = e.target.value;
+        localStorage.setItem('chunk_reader_last_folder_v5', lastFolderId);
+      };
 
       document.getElementById('btn-paste-clipboard').onclick = async () => {
         try {
@@ -547,12 +555,10 @@
       });
     }
 
-    // ライブラリ画面の階層ツリー描画（インデント揃え & 格納・展開対応）
     function renderTree() {
       const container = document.getElementById('tree-container');
       container.innerHTML = '';
 
-      // 初期状態：すべてのフォルダを展開状態に設定
       if (!isTreeInit && folders.length > 0) {
         folders.forEach(f => expandedFolderIds.add(f.id));
         isTreeInit = true;
@@ -560,7 +566,6 @@
 
       function buildFolderTree(parentId, level) {
         const ul = document.createElement('ul');
-        // サブ階層の美しいインデント設定（ガイドライン付き）
         ul.className = level > 0 ? "pl-4 ml-3 border-l-2 border-slate-200/80 space-y-1 my-1" : "space-y-1";
 
         const subFolders = folders.filter(f => f.parentId === parentId);
@@ -568,7 +573,6 @@
           const li = document.createElement('li');
           const isExpanded = expandedFolderIds.has(f.id);
 
-          // フォルダ内の件数カウント（フォルダ＋文章）
           const childTextCount = texts.filter(t => t.folderId === f.id).length;
           const childFolderCount = folders.filter(sub => sub.parentId === f.id).length;
           const totalItems = childTextCount + childFolderCount;
@@ -589,7 +593,6 @@
             </div>
           `;
 
-          // フォルダタップで格納/展開を切替
           folderHeader.onclick = (e) => {
             if (expandedFolderIds.has(f.id)) {
               expandedFolderIds.delete(f.id);
@@ -614,32 +617,50 @@
 
           li.appendChild(folderHeader);
 
-          // 展開中のみ配下要素（サブフォルダ & 英文）を表示
           if (isExpanded) {
             li.appendChild(buildFolderTree(f.id, level + 1));
           }
           ul.appendChild(li);
         });
 
-        // フォルダ内の文章一覧（インデントされて頭が揃う）
+        // 英文（テキスト）一覧の描画＋個別の削除ボタン追加
         const childTexts = texts.filter(t => t.folderId === parentId);
         childTexts.forEach(t => {
           const li = document.createElement('li');
           const isActive = t.id === currentTextId;
-          li.className = `p-2 px-3 rounded-xl cursor-pointer transition flex items-center gap-2.5 ${
+          li.className = `p-2 px-3 rounded-xl cursor-pointer transition flex items-center justify-between gap-2.5 group ${
             isActive ? 'bg-indigo-600 text-white font-bold shadow-sm shadow-indigo-200' : 'text-slate-700 hover:bg-slate-100/80 bg-white border border-slate-200/50'
           }`;
+          
           li.innerHTML = `
-            <i class="fa-regular fa-file-lines ${isActive ? 'text-indigo-200' : 'text-slate-400'} text-xs flex-shrink-0"></i>
-            <span class="truncate text-xs md:text-sm font-medium tracking-tight">${t.title}</span>
+            <div class="flex items-center gap-2.5 truncate flex-1 min-w-0">
+              <i class="fa-regular fa-file-lines ${isActive ? 'text-indigo-200' : 'text-slate-400'} text-xs flex-shrink-0"></i>
+              <span class="truncate text-xs md:text-sm font-medium tracking-tight">${t.title}</span>
+            </div>
+            <button title="文章を削除" class="btn-del-text p-1 px-1.5 rounded-lg transition ${
+              isActive ? 'text-indigo-200 hover:text-white hover:bg-indigo-700' : 'text-slate-400 hover:text-rose-600 hover:bg-slate-100'
+            }">
+              <i class="fa-solid fa-trash-can text-xs"></i>
+            </button>
           `;
+
+          // 文章を選択して読む
           li.onclick = (e) => {
-            e.stopPropagation();
             currentTextId = t.id;
             tappedChunks = {};
             renderTree();
             switchView('reader');
           };
+
+          // 文章単位での削除ボタン
+          li.querySelector('.btn-del-text').onclick = (e) => {
+            e.stopPropagation();
+            deleteTarget = { type: 'text', id: t.id };
+            document.getElementById('delete-modal-heading').textContent = "文章を削除しますか？";
+            document.getElementById('delete-target-title').textContent = `「${t.title}」`;
+            document.getElementById('modal-delete').classList.remove('hidden');
+          };
+
           ul.appendChild(li);
         });
 
@@ -649,6 +670,7 @@
       container.appendChild(buildFolderTree(null, 0));
     }
 
+    // JSON登録用フォルダドロップダウン生成（前回選択フォルダを自動リロード）
     function renderFolderSelectOptions() {
       const select = document.getElementById('import-folder-select');
       select.innerHTML = '<option value="">(ルート / フォルダなし)</option>';
@@ -664,6 +686,13 @@
         });
       }
       addOptions(null, "📂 ");
+
+      // 前回選択したフォルダが存在すれば初期選択
+      if (lastFolderId && folders.some(f => f.id === lastFolderId)) {
+        select.value = lastFolderId;
+      } else {
+        select.value = "";
+      }
     }
 
     function getFolderPath(folderId) {
@@ -697,7 +726,6 @@
       headerFolderTag.textContent = getFolderPath(activeText.folderId);
       readerContent.innerHTML = '';
 
-      // 白文モード
       if (config.isRaw) {
         const p = document.createElement('p');
         p.className = "text-slate-800 leading-relaxed font-normal tracking-wide";
@@ -709,7 +737,6 @@
         return;
       }
 
-      // 和訳表示モード判定
       const isNoTrans = config.transMode === 'none';
       if (isNoTrans) {
         readerContent.classList.add('mode-no-trans');
@@ -718,228 +745,4 @@
       }
 
       activeText.data.forEach((sentence, sIdx) => {
-        const sentenceDiv = document.createElement('div');
-        sentenceDiv.className = "sentence-block";
-
-        sentence.chunks.forEach((chunk, cIdx) => {
-          const chunkKey = `${sIdx}-${cIdx}`;
-          const isLastChunk = cIdx === sentence.chunks.length - 1;
-
-          const chunkWrap = document.createElement('div');
-          chunkWrap.className = "chunk-box chunk-touch cursor-pointer";
-          
-          chunkWrap.onclick = () => {
-            if (config.transMode === 'tap') {
-              tappedChunks[chunkKey] = !tappedChunks[chunkKey];
-              renderReader();
-            }
-          };
-
-          const enSpan = document.createElement('span');
-          enSpan.className = "chunk-en select-none tracking-wide text-slate-800";
-          
-          if (config.showHighlight && chunk.is_important) {
-            const words = chunk.en.split(' ');
-            if (words.length > 0) {
-              const firstWord = words[0];
-              const restWords = words.slice(1).join(' ');
-
-              const redWordSpan = document.createElement('span');
-              redWordSpan.className = "text-rose-600 font-semibold bg-rose-50 px-1 rounded";
-              redWordSpan.textContent = firstWord;
-
-              enSpan.appendChild(redWordSpan);
-              if (restWords) {
-                enSpan.appendChild(document.createTextNode(' ' + restWords));
-              }
-            } else {
-              enSpan.textContent = chunk.en;
-            }
-          } else {
-            enSpan.textContent = chunk.en;
-          }
-
-          chunkWrap.appendChild(enSpan);
-
-          let showJa = false;
-          if (config.transMode === 'all') showJa = true;
-          if (config.transMode === 'tap' && tappedChunks[chunkKey]) showJa = true;
-
-          if (showJa && chunk.ja) {
-            const jaSpan = document.createElement('span');
-            jaSpan.className = "chunk-ja";
-            jaSpan.textContent = chunk.ja;
-            chunkWrap.appendChild(jaSpan);
-          }
-
-          sentenceDiv.appendChild(chunkWrap);
-
-          if (config.showSlash && !isLastChunk) {
-            const slashSpan = document.createElement('span');
-            slashSpan.className = "slash-mark";
-            slashSpan.textContent = "/";
-            sentenceDiv.appendChild(slashSpan);
-          }
-        });
-
-        readerContent.appendChild(sentenceDiv);
-      });
-    }
-
-    function openFolderModal(parentId) {
-      targetParentFolderId = parentId;
-      document.getElementById('modal-folder-title').textContent = parentId ? "サブフォルダを追加" : "新しいフォルダを追加";
-      document.getElementById('folder-name-input').value = '';
-      document.getElementById('modal-folder').classList.remove('hidden');
-    }
-
-    function closeFolderModal() {
-      document.getElementById('modal-folder').classList.add('hidden');
-    }
-
-    function handleSaveFolder() {
-      const name = document.getElementById('folder-name-input').value.trim();
-      if (!name) return;
-
-      const newFolder = {
-        id: "f-" + Date.now(),
-        name: name,
-        parentId: targetParentFolderId
-      };
-
-      folders.push(newFolder);
-      expandedFolderIds.add(newFolder.id); // 新規フォルダは自動展開
-      saveToLocalStorage();
-      closeFolderModal();
-      renderTree();
-    }
-
-    function handleSaveImport() {
-      const errorEl = document.getElementById('import-error');
-      errorEl.classList.add('hidden');
-
-      const jsonStr = document.getElementById('import-json').value.trim();
-      let titleStr = document.getElementById('import-title').value.trim();
-      const folderId = document.getElementById('import-folder-select').value || null;
-
-      if (!jsonStr) {
-        showError('JSONコードが入力されていません。');
-        return;
-      }
-
-      try {
-        const parsed = JSON.parse(jsonStr);
-
-        if (!Array.isArray(parsed) || parsed.length === 0 || !parsed[0].chunks) {
-          throw new Error('LLMのフォーマットと異なります。');
-        }
-
-        if (!titleStr) titleStr = `英文テキスト ${texts.length + 1}`;
-
-        const newText = {
-          id: "text-" + Date.now(),
-          folderId: folderId,
-          title: titleStr,
-          data: parsed
-        };
-
-        texts.push(newText);
-        currentTextId = newText.id;
-        if (folderId) expandedFolderIds.add(folderId); // 追加先フォルダを展開
-        saveToLocalStorage();
-
-        document.getElementById('import-title').value = '';
-        document.getElementById('import-json').value = '';
-        renderTree();
-        switchView('reader');
-
-      } catch (err) {
-        showError('JSONの解析に失敗しました。ChatGPT等の出力をそのまま貼り付けてください。');
-      }
-    }
-
-    function showError(msg) {
-      const errorEl = document.getElementById('import-error');
-      errorEl.textContent = msg;
-      errorEl.classList.remove('hidden');
-    }
-
-    function handleConfirmDelete() {
-      if (!deleteTarget) return;
-
-      if (deleteTarget.type === 'text') {
-        texts = texts.filter(t => t.id !== deleteTarget.id);
-        if (currentTextId === deleteTarget.id) {
-          currentTextId = texts.length > 0 ? texts[0].id : null;
-        }
-      } else if (deleteTarget.type === 'folder') {
-        const folderIdsToDelete = [deleteTarget.id];
-        function collectChildren(fid) {
-          const subs = folders.filter(f => f.parentId === fid);
-          subs.forEach(s => {
-            folderIdsToDelete.push(s.id);
-            collectChildren(s.id);
-          });
-        }
-        collectChildren(deleteTarget.id);
-
-        folders = folders.filter(f => !folderIdsToDelete.includes(f.id));
-        texts = texts.filter(t => !folderIdsToDelete.includes(t.folderId));
-
-        if (!texts.find(t => t.id === currentTextId)) {
-          currentTextId = texts.length > 0 ? texts[0].id : null;
-        }
-      }
-
-      saveToLocalStorage();
-      document.getElementById('modal-delete').classList.add('hidden');
-      deleteTarget = null;
-      renderTree();
-      renderReader();
-    }
-
-    function handleExportData() {
-      const backupData = {
-        version: "5.0",
-        exportDate: new Date().toISOString(),
-        folders: folders,
-        texts: texts
-      };
-
-      const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(backupData, null, 2));
-      const downloadAnchor = document.createElement('a');
-      downloadAnchor.setAttribute("href", dataStr);
-      downloadAnchor.setAttribute("download", `chunk_reader_backup_${new Date().toISOString().slice(0,10)}.json`);
-      document.body.appendChild(downloadAnchor);
-      downloadAnchor.click();
-      downloadAnchor.remove();
-    }
-
-    function handleImportBackupFile(e) {
-      const file = e.target.files[0];
-      if (!file) return;
-
-      const reader = new FileReader();
-      reader.onload = function(event) {
-        try {
-          const imported = JSON.parse(event.target.result);
-          if (imported.folders && imported.texts) {
-            folders = imported.folders;
-            texts = imported.texts;
-            if (texts.length > 0) currentTextId = texts[0].id;
-            saveToLocalStorage();
-            renderTree();
-            renderReader();
-            alert('データを無事に復元しました！');
-          } else {
-            alert('有効なバックアップファイルではありません。');
-          }
-        } catch (err) {
-          alert('ファイルの読み込みに失敗しました。');
-        }
-      };
-      reader.readAsText(file);
-    }
-  </script>
-</body>
-</html>
+        const sentenceDiv = document.createElemen
