@@ -12,10 +12,13 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="apple-mobile-web-app-title" content="ChunkReader">
 
-  <!-- インライン Web App Manifest -->
-  <link rel="manifest" href='data:application/manifest+json,{"name":"ChunkReader - スラッシュリーディング","short_name":"ChunkReader","start_url":".","display":"standalone","background_color":"#f8fafc","theme_color":"#4f46e5","icons":[{"src":"data:image/svg+xml,<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 100 100\"><rect width=\"100\" height=\"100\" rx=\"28\" fill=\"%234f46e5\"/><path d=\"M25 38 C35 32, 45 37, 50 42 C55 37, 65 32, 75 38 L75 68 C65 62, 55 67, 50 72 C45 67, 35 62, 25 68 Z\" fill=\"none\" stroke=\"white\" stroke-width=\"6\" stroke-linejoin=\"round\"/><line x1=\"50\" y1=\"42\" x2=\"50\" y2=\"72\" stroke=\"white\" stroke-width=\"6\"/></svg>","sizes":"512x512","type":"image/svg+xml"}]}'>
+  <!-- iOS用 Apple Touch Icon (これがないとiOSで単なるショートカットになる) -->
+  <link rel="apple-touch-icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='28' fill='%234f46e5'/><path d='M25 38 C35 32, 45 37, 50 42 C55 37, 65 32, 75 38 L75 68 C65 62, 55 67, 50 72 C45 67, 35 62, 25 68 Z' fill='none' stroke='white' stroke-width='6' stroke-linejoin='round'/><line x1='50' y1='42' x2='50' y2='72' stroke='white' stroke-width='6'/></svg>">
 
-  <!-- SVG Favicon (紫の丸角背景 + 白い開いた本) -->
+  <!-- インライン Web App Manifest（厳格化） -->
+  <link rel="manifest" href='data:application/manifest+json,{"name":"ChunkReader - スラッシュリーディング","short_name":"ChunkReader","description":"スラッシュリーディング＆音読管理アプリ","start_url":"./","scope":"./","display":"standalone","orientation":"portrait","background_color":"#f8fafc","theme_color":"#4f46e5","icons":[{"src":"data:image/svg+xml,<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 100 100\"><rect width=\"100\" height=\"100\" rx=\"28\" fill=\"%234f46e5\"/><path d=\"M25 38 C35 32, 45 37, 50 42 C55 37, 65 32, 75 38 L75 68 C65 62, 55 67, 50 72 C45 67, 35 62, 25 68 Z\" fill=\"none\" stroke=\"white\" stroke-width=\"6\" stroke-linejoin=\"round\"/><line x1=\"50\" y1=\"42\" x2=\"50\" y2=\"72\" stroke=\"white\" stroke-width=\"6\"/></svg>","sizes":"512x512","type":"image/svg+xml","purpose":"any maskable"}]}'>
+
+  <!-- SVG Favicon -->
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='28' fill='%234f46e5'/><path d='M25 38 C35 32, 45 37, 50 42 C55 37, 65 32, 75 38 L75 68 C65 62, 55 67, 50 72 C45 67, 35 62, 25 68 Z' fill='none' stroke='white' stroke-width='6' stroke-linejoin='round'/><line x1='50' y1='42' x2='50' y2='72' stroke='white' stroke-width='6'/></svg>">
 
   <!-- Tailwind CSS -->
@@ -285,15 +288,17 @@
 
   <!-- アプリJSロジック -->
   <script>
-    // PWA Service Worker の登録
+    // Service Worker の登録（PWA化の必須要件）
     if ('serviceWorker' in navigator) {
-      const swCode = `
-        self.addEventListener('install', (e) => self.skipWaiting());
-        self.addEventListener('activate', (e) => self.clients.claim());
-        self.addEventListener('fetch', (e) => e.respondWith(fetch(e.request)));
-      `;
-      const blob = new Blob([swCode], { type: 'application/javascript' });
-      navigator.serviceWorker.register(URL.createObjectURL(blob)).catch(() => {});
+      window.addEventListener('load', () => {
+        const swCode = `
+          self.addEventListener('install', (e) => self.skipWaiting());
+          self.addEventListener('activate', (e) => self.clients.claim());
+          self.addEventListener('fetch', (e) => e.respondWith(fetch(e.request)));
+        `;
+        const blob = new Blob([swCode], { type: 'application/javascript' });
+        navigator.serviceWorker.register(URL.createObjectURL(blob)).catch(() => {});
+      });
     }
 
     // PWA インストールプロンプト制御
@@ -373,7 +378,7 @@
     let currentTextId = null;
     let targetParentFolderId = null;
     let deleteTarget = null;
-    let expandedFolderIds = new Set(); // 開いているフォルダのID集合
+    let expandedFolderIds = new Set();
     let isTreeInit = false;
 
     let config = {
@@ -547,12 +552,11 @@
       });
     }
 
-    // ライブラリ画面の階層ツリー描画（インデント揃え & 格納・展開対応）
+    // ライブラリ画面の階層ツリー描画
     function renderTree() {
       const container = document.getElementById('tree-container');
       container.innerHTML = '';
 
-      // 初期状態：すべてのフォルダを展開状態に設定
       if (!isTreeInit && folders.length > 0) {
         folders.forEach(f => expandedFolderIds.add(f.id));
         isTreeInit = true;
@@ -560,7 +564,6 @@
 
       function buildFolderTree(parentId, level) {
         const ul = document.createElement('ul');
-        // サブ階層の美しいインデント設定（ガイドライン付き）
         ul.className = level > 0 ? "pl-4 ml-3 border-l-2 border-slate-200/80 space-y-1 my-1" : "space-y-1";
 
         const subFolders = folders.filter(f => f.parentId === parentId);
@@ -568,7 +571,6 @@
           const li = document.createElement('li');
           const isExpanded = expandedFolderIds.has(f.id);
 
-          // フォルダ内の件数カウント（フォルダ＋文章）
           const childTextCount = texts.filter(t => t.folderId === f.id).length;
           const childFolderCount = folders.filter(sub => sub.parentId === f.id).length;
           const totalItems = childTextCount + childFolderCount;
@@ -589,7 +591,6 @@
             </div>
           `;
 
-          // フォルダタップで格納/展開を切替
           folderHeader.onclick = (e) => {
             if (expandedFolderIds.has(f.id)) {
               expandedFolderIds.delete(f.id);
@@ -614,24 +615,27 @@
 
           li.appendChild(folderHeader);
 
-          // 展開中のみ配下要素（サブフォルダ & 英文）を表示
           if (isExpanded) {
             li.appendChild(buildFolderTree(f.id, level + 1));
           }
           ul.appendChild(li);
         });
 
-        // フォルダ内の文章一覧（インデントされて頭が揃う）
         const childTexts = texts.filter(t => t.folderId === parentId);
         childTexts.forEach(t => {
           const li = document.createElement('li');
           const isActive = t.id === currentTextId;
-          li.className = `p-2 px-3 rounded-xl cursor-pointer transition flex items-center gap-2.5 ${
+          li.className = `p-2 px-3 rounded-xl cursor-pointer transition flex items-center justify-between gap-2.5 ${
             isActive ? 'bg-indigo-600 text-white font-bold shadow-sm shadow-indigo-200' : 'text-slate-700 hover:bg-slate-100/80 bg-white border border-slate-200/50'
           }`;
           li.innerHTML = `
-            <i class="fa-regular fa-file-lines ${isActive ? 'text-indigo-200' : 'text-slate-400'} text-xs flex-shrink-0"></i>
-            <span class="truncate text-xs md:text-sm font-medium tracking-tight">${t.title}</span>
+            <div class="flex items-center gap-2.5 truncate min-w-0">
+              <i class="fa-regular fa-file-lines ${isActive ? 'text-indigo-200' : 'text-slate-400'} text-xs flex-shrink-0"></i>
+              <span class="truncate text-xs md:text-sm font-medium tracking-tight">${t.title}</span>
+            </div>
+            <button title="文章削除" class="btn-del-text p-1.5 ${isActive ? 'text-indigo-200 hover:text-white hover:bg-indigo-500/50' : 'text-slate-400 hover:text-rose-600 hover:bg-slate-100'} rounded-lg transition flex-shrink-0">
+              <i class="fa-solid fa-trash-can text-xs"></i>
+            </button>
           `;
           li.onclick = (e) => {
             e.stopPropagation();
@@ -640,6 +644,18 @@
             renderTree();
             switchView('reader');
           };
+
+          const delBtn = li.querySelector('.btn-del-text');
+          if (delBtn) {
+            delBtn.onclick = (e) => {
+              e.stopPropagation();
+              deleteTarget = { type: 'text', id: t.id };
+              document.getElementById('delete-modal-heading').textContent = "文章を削除しますか？";
+              document.getElementById('delete-target-title').textContent = `「${t.title}」`;
+              document.getElementById('modal-delete').classList.remove('hidden');
+            };
+          }
+
           ul.appendChild(li);
         });
 
@@ -697,7 +713,6 @@
       headerFolderTag.textContent = getFolderPath(activeText.folderId);
       readerContent.innerHTML = '';
 
-      // 白文モード
       if (config.isRaw) {
         const p = document.createElement('p');
         p.className = "text-slate-800 leading-relaxed font-normal tracking-wide";
@@ -709,7 +724,6 @@
         return;
       }
 
-      // 和訳表示モード判定
       const isNoTrans = config.transMode === 'none';
       if (isNoTrans) {
         readerContent.classList.add('mode-no-trans');
@@ -808,7 +822,7 @@
       };
 
       folders.push(newFolder);
-      expandedFolderIds.add(newFolder.id); // 新規フォルダは自動展開
+      expandedFolderIds.add(newFolder.id);
       saveToLocalStorage();
       closeFolderModal();
       renderTree();
@@ -845,7 +859,7 @@
 
         texts.push(newText);
         currentTextId = newText.id;
-        if (folderId) expandedFolderIds.add(folderId); // 追加先フォルダを展開
+        if (folderId) expandedFolderIds.add(folderId);
         saveToLocalStorage();
 
         document.getElementById('import-title').value = '';
