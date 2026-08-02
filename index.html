@@ -30,52 +30,59 @@
       background-color: #e0e7ff !important;
     }
 
-    /* ★ 重なり＆横幅変化を同時に防止する完全固定レイアウト */
+    /* ★ ズレ・改行・かぶりを100%防止する完全固定CSS */
     .sentence-block {
-      display: block;
-      margin-bottom: 0.8rem;
-      line-height: 1.5;
+      display: block !important;
+      margin-bottom: 0.8rem !important;
+      word-break: break-word !important;
     }
 
-    /* チャンクの外枠（幅は英文の長さだけで決まる） */
+    /* チャンク親枠（幅は英文のみで決定） */
     .chunk-box {
-      display: inline-block;
-      vertical-align: top;
-      margin: 1px 2px;
-      min-width: 2rem; /* I や at などの極小単語でも和訳用に最小幅を確保 */
-      border-radius: 6px;
-      padding: 1px 3px;
+      position: relative !important;
+      display: inline-block !important;
+      vertical-align: baseline !important;
+      margin: 0 2px !important;
+      padding: 0 2px !important;
+      border-radius: 4px;
     }
 
-    /* 英文表示エリア */
+    /* 英文本体（折り返さず1行） */
     .chunk-en {
-      display: block;
-      white-space: nowrap; /* 英文チャンクは1行に固定 */
+      display: inline-block !important;
+      white-space: nowrap !important;
+      line-height: 1.2 !important;
     }
 
-    /* 和訳表示エリア（英文の幅を超えずに内部で折り返す） */
+    /* 和訳本体（絶対配置で英文の真下に完全固定＋英文幅の中で自動改行） */
     .chunk-ja {
-      display: block;
-      font-size: 0.65rem;
-      line-height: 1.2;
-      color: #4f46e5;
-      margin-top: 2px;
+      position: absolute !important;
+      top: 100% !important; /* 英文の底辺からスタート（かぶり不可） */
+      left: 0 !important;
+      width: 100% !important; /* 幅は英文幅に100%固定 */
+      margin-top: 2px !important;
       
-      /* 横幅固定の決定版CSS */
-      width: 0;
-      min-width: 100%;
-      max-width: 100%;
-      word-break: break-all;
-      white-space: normal;
+      font-size: 0.62rem !important;
+      line-height: 1.15 !important;
+      color: #4f46e5 !important;
+      font-weight: 400 !important;
+      
+      /* 英文幅の中で和訳のみ折り返す設定 */
+      white-space: normal !important;
+      word-break: break-all !important;
+      overflow-wrap: break-word !important;
+      
+      pointer-events: none !important;
+      z-index: 10 !important;
     }
 
     .slash-mark {
-      display: inline-block;
-      vertical-align: top;
-      color: #a5b4fc;
-      font-weight: 300;
-      margin: 2px 2px 0 2px;
-      user-select: none;
+      display: inline-block !important;
+      vertical-align: baseline !important;
+      color: #a5b4fc !important;
+      font-weight: 300 !important;
+      margin: 0 2px !important;
+      user-select: none !important;
     }
   </style>
 </head>
@@ -601,16 +608,17 @@
         return;
       }
 
-      // 通常読解モード
+      // 通常モード（和訳用に常時 line-height: 2.8 を固定確保）
       activeText.data.forEach((sentence, sIdx) => {
         const sentenceDiv = document.createElement('div');
         sentenceDiv.className = "sentence-block";
+        sentenceDiv.style.lineHeight = (config.transMode === 'none') ? '1.8' : '2.8';
 
         sentence.chunks.forEach((chunk, cIdx) => {
           const chunkKey = `${sIdx}-${cIdx}`;
           const isLastChunk = cIdx === sentence.chunks.length - 1;
 
-          // チャンク外枠
+          // チャンク外枠（サイズは英文のみで決まる）
           const chunkWrap = document.createElement('div');
           chunkWrap.className = "chunk-box chunk-touch cursor-pointer";
           
@@ -648,7 +656,7 @@
 
           chunkWrap.appendChild(enSpan);
 
-          // 和訳制御
+          // 和訳制御（絶対配置で位置・横幅を英文に100%完全連動）
           let showJa = false;
           if (config.transMode === 'all') showJa = true;
           if (config.transMode === 'tap' && tappedChunks[chunkKey]) showJa = true;
