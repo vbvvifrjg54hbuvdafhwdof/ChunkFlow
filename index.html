@@ -30,49 +30,50 @@
       background-color: #e0e7ff !important;
     }
 
-    /* ★ 文章ブロック（画面幅を超えない） */
+    /* ★ 英文と和訳を超密着させ、次の英文行を押し下げる見やすさ重視CSS */
     .sentence-block {
       display: block !important;
       margin-bottom: 1.2rem !important;
       line-height: 1.3 !important;
-      max-width: 100% !important;
       word-break: break-word !important;
-      overflow-wrap: break-word !important;
     }
 
-    /* ★ チャンク親枠（長いチャンクも画面内に安全に収める） */
+    /* チャンク枠（下部に余白を作り、次の英文行と距離をあける） */
     .chunk-box {
       position: relative !important;
       display: inline-block !important;
+      max-width: 100% !important; /* ★画面幅を超えないように制限 */
       vertical-align: top !important;
       margin-left: 2px !important;
       margin-right: 2px !important;
-      margin-bottom: 0.85rem !important;
+      margin-bottom: 0.85rem !important; /* 和訳の下にクリアな余白を常時確保 */
       padding: 0 2px !important;
       border-radius: 4px;
-      max-width: 100% !important; /* 画面幅を超えさせない */
+      box-sizing: border-box !important;
     }
 
+    /* 和訳非表示モード時は下の余白を詰める */
     .mode-no-trans .chunk-box {
       margin-bottom: 0.2rem !important;
     }
 
-    /* ★ 英文本体（長文チャンクは画面端で自然に単語折り返し） */
+    /* 英文本体 */
     .chunk-en {
-      display: inline !important;
-      white-space: normal !important; /* 画面幅を超えた場合のみ折り返しを許可 */
+      display: inline-block !important;
+      max-width: 100% !important;
+      white-space: normal !important; /* ★画面幅を超える長い英文も画面端で安全に折り返し */
       word-break: break-word !important;
       overflow-wrap: break-word !important;
       line-height: 1.2 !important;
     }
 
-    /* 和訳本体（英文直下に1pxで吸着＋折り返し） */
+    /* 和訳（英文の1px直下に吸着） */
     .chunk-ja {
       position: absolute !important;
       top: 100% !important;
       left: 0 !important;
       width: 100% !important;
-      margin-top: 1px !important;
+      margin-top: 1px !important; /* ★英文との距離を1pxに密着 */
       
       font-size: 0.62rem !important;
       line-height: 1.15 !important;
@@ -139,10 +140,10 @@
   </header>
 
   <!-- メイン領域 -->
-  <main class="flex-1 max-w-4xl w-full mx-auto p-3 md:p-6 overflow-x-hidden">
+  <main class="flex-1 max-w-4xl w-full mx-auto p-3 md:p-6">
 
     <!-- VIEW 1: 読解画面 -->
-    <section id="view-reader" class="bg-white rounded-2xl p-4 md:p-8 shadow-sm border border-slate-200/60 min-h-[70vh] flex flex-col justify-between overflow-x-hidden">
+    <section id="view-reader" class="bg-white rounded-2xl p-4 md:p-8 shadow-sm border border-slate-200/60 min-h-[70vh] flex flex-col justify-between">
       <div>
         <div class="flex items-center justify-between border-b border-slate-100 pb-3 mb-5">
           <h2 id="current-title" class="text-lg md:text-xl font-bold text-slate-800 tracking-tight leading-snug"></h2>
@@ -535,218 +536,4 @@
 
         const childTexts = texts.filter(t => t.folderId === parentId);
         childTexts.forEach(t => {
-          const li = document.createElement('li');
-          const isActive = t.id === currentTextId;
-          li.className = `p-2 pl-3 rounded-xl cursor-pointer transition flex items-center gap-2 ${
-            isActive ? 'bg-indigo-50 text-indigo-700 font-bold border border-indigo-100' : 'text-slate-600 active:bg-slate-100'
-          }`;
-          li.innerHTML = `
-            <i class="fa-regular fa-file-lines text-slate-400"></i>
-            <span class="truncate">${t.title}</span>
-          `;
-          li.onclick = () => {
-            currentTextId = t.id;
-            tappedChunks = {};
-            renderTree();
-            switchView('reader');
-          };
-          ul.appendChild(li);
-        });
-
-        return ul;
-      }
-
-      container.appendChild(buildFolderTree(null, 0));
-    }
-
-    function renderFolderSelectOptions() {
-      const select = document.getElementById('import-folder-select');
-      select.innerHTML = '<option value="">(ルート / フォルダなし)</option>';
-
-      function addOptions(parentId, prefix) {
-        const sub = folders.filter(f => f.parentId === parentId);
-        sub.forEach(f => {
-          const opt = document.createElement('option');
-          opt.value = f.id;
-          opt.textContent = prefix + f.name;
-          select.appendChild(opt);
-          addOptions(f.id, prefix + "　");
-        });
-      }
-      addOptions(null, "📂 ");
-    }
-
-    function getFolderPath(folderId) {
-      if (!folderId) return "ルート";
-      const path = [];
-      let curr = folders.find(f => f.id === folderId);
-      while (curr) {
-        path.unshift(curr.name);
-        curr = folders.find(f => f.id === curr.parentId);
-      }
-      return path.join(' / ');
-    }
-
-    function renderReader() {
-      const activeText = texts.find(t => t.id === currentTextId);
-      const readerContent = document.getElementById('reader-content');
-      const currentTitleEl = document.getElementById('current-title');
-      const headerFolderTag = document.getElementById('header-folder-tag');
-      const emptyState = document.getElementById('empty-state');
-
-      if (!activeText) {
-        currentTitleEl.textContent = "文章がありません";
-        headerFolderTag.textContent = "";
-        readerContent.innerHTML = '';
-        emptyState.classList.remove('hidden');
-        return;
-      }
-
-      emptyState.classList.add('hidden');
-      currentTitleEl.textContent = activeText.title;
-      headerFolderTag.textContent = getFolderPath(activeText.folderId);
-      readerContent.innerHTML = '';
-
-      // 白文モード
-      if (config.isRaw) {
-        const p = document.createElement('p');
-        p.className = "text-slate-800 leading-relaxed font-normal tracking-wide";
-        const fullText = activeText.data
-          .map(s => s.chunks.map(c => c.en).join(' '))
-          .join(' ');
-        p.textContent = fullText;
-        readerContent.appendChild(p);
-        return;
-      }
-
-      // 和訳表示モード判定（余白自動コントロール）
-      const isNoTrans = config.transMode === 'none';
-      if (isNoTrans) {
-        readerContent.classList.add('mode-no-trans');
-      } else {
-        readerContent.classList.remove('mode-no-trans');
-      }
-
-      activeText.data.forEach((sentence, sIdx) => {
-        const sentenceDiv = document.createElement('div');
-        sentenceDiv.className = "sentence-block";
-
-        sentence.chunks.forEach((chunk, cIdx) => {
-          const chunkKey = `${sIdx}-${cIdx}`;
-          const isLastChunk = cIdx === sentence.chunks.length - 1;
-
-          // チャンク外枠
-          const chunkWrap = document.createElement('div');
-          chunkWrap.className = "chunk-box chunk-touch cursor-pointer";
-          
-          chunkWrap.onclick = () => {
-            if (config.transMode === 'tap') {
-              tappedChunks[chunkKey] = !tappedChunks[chunkKey];
-              renderReader();
-            }
-          };
-
-          const enSpan = document.createElement('span');
-          enSpan.className = "chunk-en select-none tracking-wide text-slate-800";
-          
-          // 1単語目だけ赤字化
-          if (config.showHighlight && chunk.is_important) {
-            const words = chunk.en.split(' ');
-            if (words.length > 0) {
-              const firstWord = words[0];
-              const restWords = words.slice(1).join(' ');
-
-              const redWordSpan = document.createElement('span');
-              redWordSpan.className = "text-rose-600 font-semibold bg-rose-50 px-1 rounded";
-              redWordSpan.textContent = firstWord;
-
-              enSpan.appendChild(redWordSpan);
-              if (restWords) {
-                enSpan.appendChild(document.createTextNode(' ' + restWords));
-              }
-            } else {
-              enSpan.textContent = chunk.en;
-            }
-          } else {
-            enSpan.textContent = chunk.en;
-          }
-
-          chunkWrap.appendChild(enSpan);
-
-          // 和訳制御（英文の1px直下に吸着）
-          let showJa = false;
-          if (config.transMode === 'all') showJa = true;
-          if (config.transMode === 'tap' && tappedChunks[chunkKey]) showJa = true;
-
-          if (showJa && chunk.ja) {
-            const jaSpan = document.createElement('span');
-            jaSpan.className = "chunk-ja";
-            jaSpan.textContent = chunk.ja;
-            chunkWrap.appendChild(jaSpan);
-          }
-
-          sentenceDiv.appendChild(chunkWrap);
-
-          // スラッシュ記号
-          if (config.showSlash && !isLastChunk) {
-            const slashSpan = document.createElement('span');
-            slashSpan.className = "slash-mark";
-            slashSpan.textContent = "/";
-            sentenceDiv.appendChild(slashSpan);
-          }
-        });
-
-        readerContent.appendChild(sentenceDiv);
-      });
-    }
-
-    function openFolderModal(parentId) {
-      targetParentFolderId = parentId;
-      document.getElementById('modal-folder-title').textContent = parentId ? "サブフォルダを追加" : "新しいフォルダを追加";
-      document.getElementById('folder-name-input').value = '';
-      document.getElementById('modal-folder').classList.remove('hidden');
-    }
-
-    function closeFolderModal() {
-      document.getElementById('modal-folder').classList.add('hidden');
-    }
-
-    function handleSaveFolder() {
-      const name = document.getElementById('folder-name-input').value.trim();
-      if (!name) return;
-
-      const newFolder = {
-        id: "f-" + Date.now(),
-        name: name,
-        parentId: targetParentFolderId
-      };
-
-      folders.push(newFolder);
-      saveToLocalStorage();
-      closeFolderModal();
-      renderTree();
-    }
-
-    function handleSaveImport() {
-      const errorEl = document.getElementById('import-error');
-      errorEl.classList.add('hidden');
-
-      const jsonStr = document.getElementById('import-json').value.trim();
-      let titleStr = document.getElementById('import-title').value.trim();
-      const folderId = document.getElementById('import-folder-select').value || null;
-
-      if (!jsonStr) {
-        showError('JSONコードが入力されていません。');
-        return;
-      }
-
-      try {
-        const parsed = JSON.parse(jsonStr);
-
-        if (!Array.isArray(parsed) || parsed.length === 0 || !parsed[0].chunks) {
-          throw new Error('LLMのフォーマットと異なります。');
-        }
-
-        if (!titleStr) titleStr = `英文テキスト ${texts.length + 1}`;
-
-        const newText = {
+          const li = document.createElement(
