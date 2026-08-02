@@ -4,6 +4,10 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>ChunkReader - スラッシュリーディング & 音読管理</title>
+
+  <!-- SVG Favicon (紫の丸角背景 + 白い開いた本) -->
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='28' fill='%234f46e5'/><path d='M25 38 C35 32, 45 37, 50 42 C55 37, 65 32, 75 38 L75 68 C65 62, 55 67, 50 72 C45 67, 35 62, 25 68 Z' fill='none' stroke='white' stroke-width='6' stroke-linejoin='round'/><line x1='50' y1='42' x2='50' y2='72' stroke='white' stroke-width='6'/></svg>">
+
   <!-- Tailwind CSS -->
   <script src="https://cdn.tailwindcss.com"></script>
   <!-- FontAwesome Icons -->
@@ -14,13 +18,11 @@
   <style>
     body {
       font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-      -webkit-tap-highlight-color: transparent; /* タップ時の青い枠を非表示 */
+      -webkit-tap-highlight-color: transparent;
     }
-    /* 横スクロールバーの非表示 */
     .no-scrollbar::-webkit-scrollbar { display: none; }
     .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
     
-    /* チャンクタップ時のフィードバック */
     .chunk-touch {
       transition: background-color 0.1s ease, transform 0.1s ease;
     }
@@ -28,46 +30,66 @@
       background-color: #e0e7ff !important;
       transform: scale(0.97);
     }
+
+    /* ★ 和訳表示で英文が改行・ズレを起こさない固定幅設計 */
+    .chunk-box {
+      display: inline-flex;
+      flex-direction: column;
+      align-items: flex-start;
+      margin: 2px 2px;
+      vertical-align: top;
+      max-width: max-content;
+    }
+    .chunk-en {
+      white-space: nowrap; /* 英文チャンクは1行に固定 */
+    }
+    .chunk-ja {
+      font-size: 0.65rem;
+      line-height: 1.15;
+      color: #4f46e5;
+      margin-top: 2px;
+      /* 和訳が英文幅を超えてレイアウトを押し広げない制限 */
+      width: 100%;
+      max-width: 100%;
+      word-break: break-all;
+      white-space: normal;
+    }
   </style>
 </head>
 <body class="bg-[#f8fafc] text-slate-800 min-h-screen flex flex-col pb-20 md:pb-0 selection:bg-indigo-100">
 
-  <!-- 上部ヘッダー（アプリタイトル & コンパクト操作バー） -->
+  <!-- ヘッダー -->
   <header class="bg-white/95 backdrop-blur-md border-b border-slate-200/80 sticky top-0 z-30 shadow-sm">
     <div class="max-w-4xl mx-auto px-3 py-2 flex flex-col gap-2">
       
-      <!-- タイトル & ブランド -->
+      <!-- タイトル & ブランドアイコン -->
       <div class="flex items-center justify-between">
         <div class="flex items-center gap-2">
-          <div class="w-7 h-7 bg-indigo-600 rounded-lg flex items-center justify-center text-white shadow-sm">
+          <!-- 紫背景 + 白い開いた本アイコン -->
+          <div class="w-8 h-8 bg-indigo-600 rounded-xl flex items-center justify-center text-white shadow-md shadow-indigo-100">
             <i class="fa-solid fa-book-open text-xs"></i>
           </div>
           <h1 class="text-base font-bold tracking-tight text-slate-800">ChunkReader</h1>
         </div>
-        <span id="header-folder-tag" class="text-[10px] bg-slate-100 text-indigo-600 px-2 py-0.5 rounded-full font-semibold truncate max-w-[150px]"></span>
+        <span id="header-folder-tag" class="text-[10px] bg-indigo-50 text-indigo-600 px-2.5 py-0.5 rounded-full font-semibold truncate max-w-[160px]"></span>
       </div>
 
-      <!-- スマホ最適化：横スクロール対応コントロールバー -->
+      <!-- コントロールバー -->
       <div id="toolbar-controls" class="flex items-center gap-1.5 overflow-x-auto no-scrollbar py-0.5">
-        
-        <!-- スラッシュ -->
         <button id="toggle-slash" class="flex-shrink-0 px-2.5 py-1 rounded-lg text-xs font-semibold transition flex items-center gap-1 bg-white border border-slate-200 shadow-sm">
           <span class="font-bold text-indigo-500">/</span> スラッシュ
         </button>
 
-        <!-- 重要語（1単語赤字） -->
         <button id="toggle-highlight" class="flex-shrink-0 px-2.5 py-1 rounded-lg text-xs font-semibold transition flex items-center gap-1 bg-white border border-slate-200 shadow-sm">
           <span class="w-2 h-2 rounded-full bg-rose-500"></span> 重要語
         </button>
 
-        <!-- 和訳モード切替 -->
         <div class="flex-shrink-0 flex bg-slate-100 p-0.5 rounded-lg text-xs font-semibold border border-slate-200/60">
           <button id="mode-tap" class="px-2 py-0.5 rounded-md transition bg-white text-indigo-600 shadow-sm">タップ</button>
           <button id="mode-all" class="px-2 py-0.5 rounded-md transition text-slate-500">全表示</button>
           <button id="mode-none" class="px-2 py-0.5 rounded-md transition text-slate-500">隠す</button>
         </div>
 
-        <!-- 白文（Raw） -->
         <button id="toggle-raw" class="flex-shrink-0 px-2.5 py-1 rounded-lg text-xs font-semibold transition flex items-center gap-1 border border-slate-200 text-slate-600 hover:bg-white">
           <i class="fa-solid fa-leaf text-emerald-500"></i> 白文
         </button>
@@ -76,7 +98,7 @@
     </div>
   </header>
 
-  <!-- メイン表示領域 -->
+  <!-- メイン領域 -->
   <main class="flex-1 max-w-4xl w-full mx-auto p-3 md:p-6">
 
     <!-- VIEW 1: 読解画面 -->
@@ -89,23 +111,37 @@
           </button>
         </div>
 
-        <!-- 英文チャンク表示エリア（スマホで押しやすいパディング設定） -->
+        <!-- 英文チャンク表示領域 -->
         <div id="reader-content" class="space-y-6 text-base md:text-lg leading-relaxed"></div>
       </div>
 
       <div id="empty-state" class="hidden text-center py-16">
         <i class="fa-solid fa-folder-open text-3xl text-slate-300 mb-2"></i>
-        <p class="text-xs text-slate-500 font-medium">文章が選択されていません。<br>「ライブラリ」から選択してください。</p>
+        <p class="text-xs text-slate-500 font-medium">文章が選択されていません。<br>「ライブラリ」から選択するか、追加してください。</p>
       </div>
     </section>
 
-    <!-- VIEW 2: ライブラリ画面 (スマホで全画面操作) -->
-    <section id="view-library" class="bg-white rounded-2xl p-4 md:p-6 shadow-sm border border-slate-200/60 hidden space-y-4">
-      <div class="flex items-center justify-between border-b border-slate-100 pb-3">
+    <!-- VIEW 2: ライブラリ画面 (バックアップ機能追加) -->
+    <section id="view-library" class="bg-white rounded-2xl p-4 md:p-6 shadow-sm border border-slate-200/60 hidden space-y-5">
+      
+      <!-- ヘッダー & バックアップボタン -->
+      <div class="flex flex-wrap items-center justify-between border-b border-slate-100 pb-3 gap-2">
         <h2 class="text-base font-bold text-slate-800">ライブラリ</h2>
-        <button id="btn-add-root-folder" class="py-1.5 px-3 bg-indigo-50 hover:bg-indigo-100 text-indigo-600 font-semibold text-xs rounded-xl transition flex items-center gap-1.5">
-          <i class="fa-solid fa-folder-plus"></i> 新規フォルダ
-        </button>
+        
+        <div class="flex items-center gap-1.5">
+          <!-- データ入出力 -->
+          <button id="btn-export-data" class="py-1 px-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold text-xs rounded-lg transition flex items-center gap-1" title="データを保存">
+            <i class="fa-solid fa-download text-indigo-500"></i> バックアップ
+          </button>
+          <button id="btn-import-data" class="py-1 px-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold text-xs rounded-lg transition flex items-center gap-1" title="データを復元">
+            <i class="fa-solid fa-upload text-emerald-500"></i> 復元
+          </button>
+          <input type="file" id="file-input-backup" accept=".json" class="hidden">
+
+          <button id="btn-add-root-folder" class="py-1 px-2.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-600 font-semibold text-xs rounded-lg transition flex items-center gap-1">
+            <i class="fa-solid fa-folder-plus"></i> 新規フォルダ
+          </button>
+        </div>
       </div>
 
       <div id="tree-container" class="space-y-1 text-sm"></div>
@@ -151,7 +187,7 @@
 
   </main>
 
-  <!-- スマホ用：画面下部固定ナビゲーションバー -->
+  <!-- 下部固定ナビゲーションバー -->
   <nav class="fixed bottom-0 inset-x-0 bg-white/95 backdrop-blur-md border-t border-slate-200/80 z-40 px-6 py-2 flex justify-around items-center">
     <button id="nav-reader" class="flex flex-col items-center gap-0.5 text-indigo-600 font-bold transition">
       <i class="fa-solid fa-book-reader text-lg"></i>
@@ -301,7 +337,6 @@
       localStorage.setItem('chunk_reader_texts_v5', JSON.stringify(texts));
     }
 
-    // 画面ビュー切替（reader, library, import）
     function switchView(viewName) {
       document.getElementById('view-reader').classList.toggle('hidden', viewName !== 'reader');
       document.getElementById('view-library').classList.toggle('hidden', viewName !== 'library');
@@ -309,7 +344,6 @@
 
       document.getElementById('toolbar-controls').style.display = (viewName === 'reader') ? 'flex' : 'none';
 
-      // 下部ナビアイコンのスタイルハイライト
       const navs = {
         reader: document.getElementById('nav-reader'),
         library: document.getElementById('nav-library'),
@@ -338,6 +372,12 @@
       document.getElementById('btn-add-root-folder').onclick = () => openFolderModal(null);
       document.getElementById('btn-cancel-folder').onclick = closeFolderModal;
       document.getElementById('btn-save-folder').onclick = handleSaveFolder;
+
+      // バックアップ（エクスポート）
+      document.getElementById('btn-export-data').onclick = handleExportData;
+      // 復元（インポート）
+      document.getElementById('btn-import-data').onclick = () => document.getElementById('file-input-backup').click();
+      document.getElementById('file-input-backup').onchange = handleImportBackupFile;
 
       document.getElementById('btn-paste-clipboard').onclick = async () => {
         try {
@@ -552,9 +592,9 @@
           const chunkKey = `${sIdx}-${cIdx}`;
           const isLastChunk = cIdx === sentence.chunks.length - 1;
 
-          // スマホ用タッチ領域（chunk-touch）
+          // ★ chunk-box クラスでレイアウト崩れ（改行移動）を完全防止
           const chunkWrap = document.createElement('div');
-          chunkWrap.className = "inline-flex flex-col mx-0.5 px-1.5 py-1 rounded-lg chunk-touch cursor-pointer";
+          chunkWrap.className = "chunk-box chunk-touch rounded-lg px-1 py-0.5 cursor-pointer";
           
           chunkWrap.onclick = () => {
             if (config.transMode === 'tap') {
@@ -564,9 +604,9 @@
           };
 
           const enSpan = document.createElement('span');
-          enSpan.className = "font-medium select-none tracking-wide text-slate-800";
+          enSpan.className = "chunk-en font-medium select-none tracking-wide text-slate-800";
           
-          // ★ 1単語目だけ赤字化
+          // 1単語目だけ赤字化
           if (config.showHighlight && chunk.is_important) {
             const words = chunk.en.split(' ');
             if (words.length > 0) {
@@ -596,7 +636,7 @@
 
           if (showJa && chunk.ja) {
             const jaSpan = document.createElement('span');
-            jaSpan.className = "text-xs text-indigo-600 font-normal mt-0.5 tracking-normal";
+            jaSpan.className = "chunk-ja";
             jaSpan.textContent = chunk.ja;
             chunkWrap.appendChild(jaSpan);
           }
@@ -723,6 +763,51 @@
       deleteTarget = null;
       renderTree();
       renderReader();
+    }
+
+    // ★ データのエクスポート（ダウンロード）
+    function handleExportData() {
+      const backupData = {
+        version: "5.0",
+        exportDate: new Date().toISOString(),
+        folders: folders,
+        texts: texts
+      };
+
+      const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(backupData, null, 2));
+      const downloadAnchor = document.createElement('a');
+      downloadAnchor.setAttribute("href", dataStr);
+      downloadAnchor.setAttribute("download", `chunk_reader_backup_${new Date().toISOString().slice(0,10)}.json`);
+      document.body.appendChild(downloadAnchor);
+      downloadAnchor.click();
+      downloadAnchor.remove();
+    }
+
+    // ★ データのインポート（復元）
+    function handleImportBackupFile(e) {
+      const file = e.target.files[0];
+      if (!file) return;
+
+      const reader = new FileReader();
+      reader.onload = function(event) {
+        try {
+          const imported = JSON.parse(event.target.result);
+          if (imported.folders && imported.texts) {
+            folders = imported.folders;
+            texts = imported.texts;
+            if (texts.length > 0) currentTextId = texts[0].id;
+            saveToLocalStorage();
+            renderTree();
+            renderReader();
+            alert('データを無事に復元しました！');
+          } else {
+            alert('有効なバックアップファイルではありません。');
+          }
+        } catch (err) {
+          alert('ファイルの読み込みに失敗しました。');
+        }
+      };
+      reader.readAsText(file);
     }
   </script>
 </body>
