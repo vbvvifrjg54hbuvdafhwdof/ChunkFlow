@@ -12,10 +12,10 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="apple-mobile-web-app-title" content="ChunkReader">
 
-  <!-- iOS用 Apple Touch Icon (これがないとiOSで単なるショートカットになる) -->
+  <!-- iOS用 Apple Touch Icon -->
   <link rel="apple-touch-icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='28' fill='%234f46e5'/><path d='M25 38 C35 32, 45 37, 50 42 C55 37, 65 32, 75 38 L75 68 C65 62, 55 67, 50 72 C45 67, 35 62, 25 68 Z' fill='none' stroke='white' stroke-width='6' stroke-linejoin='round'/><line x1='50' y1='42' x2='50' y2='72' stroke='white' stroke-width='6'/></svg>">
 
-  <!-- インライン Web App Manifest（厳格化） -->
+  <!-- インライン Web App Manifest -->
   <link rel="manifest" href='data:application/manifest+json,{"name":"ChunkReader - スラッシュリーディング","short_name":"ChunkReader","description":"スラッシュリーディング＆音読管理アプリ","start_url":"./","scope":"./","display":"standalone","orientation":"portrait","background_color":"#f8fafc","theme_color":"#4f46e5","icons":[{"src":"data:image/svg+xml,<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 100 100\"><rect width=\"100\" height=\"100\" rx=\"28\" fill=\"%234f46e5\"/><path d=\"M25 38 C35 32, 45 37, 50 42 C55 37, 65 32, 75 38 L75 68 C65 62, 55 67, 50 72 C45 67, 35 62, 25 68 Z\" fill=\"none\" stroke=\"white\" stroke-width=\"6\" stroke-linejoin=\"round\"/><line x1=\"50\" y1=\"42\" x2=\"50\" y2=\"72\" stroke=\"white\" stroke-width=\"6\"/></svg>","sizes":"512x512","type":"image/svg+xml","purpose":"any maskable"}]}'>
 
   <!-- SVG Favicon -->
@@ -124,7 +124,7 @@
             <i class="fa-solid fa-book-open text-xs"></i>
           </div>
           <h1 class="text-base font-bold tracking-tight text-slate-800">ChunkReader</h1>
-          <!-- PWAインストールボタン（ブラウザ対応時に自動表示） -->
+          <!-- PWAインストールボタン -->
           <button id="btn-pwa-install" class="hidden px-2 py-0.5 bg-indigo-600 hover:bg-indigo-700 text-white text-[10px] font-bold rounded-lg shadow-sm transition flex items-center gap-1 active:scale-95">
             <i class="fa-solid fa-download"></i> アプリ化
           </button>
@@ -288,7 +288,7 @@
 
   <!-- アプリJSロジック -->
   <script>
-    // Service Worker の登録（PWA化の必須要件）
+    // Service Worker 登録
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', () => {
         const swCode = `
@@ -380,6 +380,9 @@
     let deleteTarget = null;
     let expandedFolderIds = new Set();
     let isTreeInit = false;
+
+    // 前回選択したフォルダの記憶
+    let lastSelectedFolderId = localStorage.getItem('chunk_reader_last_folder_v5') || "";
 
     let config = {
       showSlash: true,
@@ -474,6 +477,12 @@
       document.getElementById('btn-export-data').onclick = handleExportData;
       document.getElementById('btn-import-data').onclick = () => document.getElementById('file-input-backup').click();
       document.getElementById('file-input-backup').onchange = handleImportBackupFile;
+
+      // 保存先フォルダの手動変更を記憶
+      document.getElementById('import-folder-select').addEventListener('change', (e) => {
+        lastSelectedFolderId = e.target.value;
+        localStorage.setItem('chunk_reader_last_folder_v5', lastSelectedFolderId);
+      });
 
       document.getElementById('btn-paste-clipboard').onclick = async () => {
         try {
@@ -665,6 +674,7 @@
       container.appendChild(buildFolderTree(null, 0));
     }
 
+    // JSON追加用のフォルダ選択肢描画（前回選択したフォルダの復元対応）
     function renderFolderSelectOptions() {
       const select = document.getElementById('import-folder-select');
       select.innerHTML = '<option value="">(ルート / フォルダなし)</option>';
@@ -680,6 +690,13 @@
         });
       }
       addOptions(null, "📂 ");
+
+      // 前回選択されたフォルダが存在すれば自動的にそれを初期選択する
+      if (lastSelectedFolderId && Array.from(select.options).some(opt => opt.value === lastSelectedFolderId)) {
+        select.value = lastSelectedFolderId;
+      } else {
+        select.value = "";
+      }
     }
 
     function getFolderPath(folderId) {
@@ -802,7 +819,7 @@
 
     function openFolderModal(parentId) {
       targetParentFolderId = parentId;
-      document.getElementById('modal-folder-title').textContent = parentId ? "サブフォルダを追加" : "新しいフォルダを追加";
+      document.getElementById('modal-folder-title').textContent = parentId ? "サブフォルダを追加" : "新しいフォルダを作成";
       document.getElementById('folder-name-input').value = '';
       document.getElementById('modal-folder').classList.remove('hidden');
     }
@@ -860,6 +877,11 @@
         texts.push(newText);
         currentTextId = newText.id;
         if (folderId) expandedFolderIds.add(folderId);
+
+        // 登録成功時に選択フォルダを記憶
+        lastSelectedFolderId = folderId || "";
+        localStorage.setItem('chunk_reader_last_folder_v5', lastSelectedFolderId);
+
         saveToLocalStorage();
 
         document.getElementById('import-title').value = '';
