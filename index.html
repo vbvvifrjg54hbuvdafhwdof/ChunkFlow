@@ -5,6 +5,16 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>ChunkReader - スラッシュリーディング & 音読管理</title>
 
+  <!-- PWA & アプリインストール設定 -->
+  <meta name="theme-color" content="#4f46e5">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="ChunkReader">
+
+  <!-- インライン Web App Manifest -->
+  <link rel="manifest" href='data:application/manifest+json,{"name":"ChunkReader - スラッシュリーディング","short_name":"ChunkReader","start_url":".","display":"standalone","background_color":"#f8fafc","theme_color":"#4f46e5","icons":[{"src":"data:image/svg+xml,<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 100 100\"><rect width=\"100\" height=\"100\" rx=\"28\" fill=\"%234f46e5\"/><path d=\"M25 38 C35 32, 45 37, 50 42 C55 37, 65 32, 75 38 L75 68 C65 62, 55 67, 50 72 C45 67, 35 62, 25 68 Z\" fill=\"none\" stroke=\"white\" stroke-width=\"6\" stroke-linejoin=\"round\"/><line x1=\"50\" y1=\"42\" x2=\"50\" y2=\"72\" stroke=\"white\" stroke-width=\"6\"/></svg>","sizes":"512x512","type":"image/svg+xml"}]}'>
+
   <!-- SVG Favicon (紫の丸角背景 + 白い開いた本) -->
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='28' fill='%234f46e5'/><path d='M25 38 C35 32, 45 37, 50 42 C55 37, 65 32, 75 38 L75 68 C65 62, 55 67, 50 72 C45 67, 35 62, 25 68 Z' fill='none' stroke='white' stroke-width='6' stroke-linejoin='round'/><line x1='50' y1='42' x2='50' y2='72' stroke='white' stroke-width='6'/></svg>">
 
@@ -38,15 +48,15 @@
       word-break: break-word !important;
     }
 
-    /* チャンク枠（下部に余白を作り、次の英文行と距離をあける） */
+    /* チャンク枠 */
     .chunk-box {
       position: relative !important;
       display: inline-block !important;
-      max-width: 100% !important; /* 長いチャンクも画面内に収める */
+      max-width: 100% !important;
       vertical-align: top !important;
       margin-left: 2px !important;
       margin-right: 2px !important;
-      margin-bottom: 0.85rem !important; /* 和訳の下にクリアな余白を常時確保 */
+      margin-bottom: 0.85rem !important;
       padding: 0 2px !important;
       border-radius: 4px;
       box-sizing: border-box !important;
@@ -61,7 +71,7 @@
     .chunk-en {
       display: inline-block !important;
       max-width: 100% !important;
-      white-space: normal !important; /* 長い一節も画面端で安全に折り返し */
+      white-space: normal !important;
       word-break: break-word !important;
       overflow-wrap: break-word !important;
       line-height: 1.2 !important;
@@ -73,7 +83,7 @@
       top: 100% !important;
       left: 0 !important;
       width: 100% !important;
-      margin-top: 1px !important; /* 英文との距離を1pxに密着 */
+      margin-top: 1px !important;
       
       font-size: 0.62rem !important;
       line-height: 1.15 !important;
@@ -111,6 +121,10 @@
             <i class="fa-solid fa-book-open text-xs"></i>
           </div>
           <h1 class="text-base font-bold tracking-tight text-slate-800">ChunkReader</h1>
+          <!-- PWAインストールボタン（ブラウザ対応時に自動表示） -->
+          <button id="btn-pwa-install" class="hidden px-2 py-0.5 bg-indigo-600 hover:bg-indigo-700 text-white text-[10px] font-bold rounded-lg shadow-sm transition flex items-center gap-1 active:scale-95">
+            <i class="fa-solid fa-download"></i> アプリ化
+          </button>
         </div>
         <span id="header-folder-tag" class="text-[10px] bg-indigo-50 text-indigo-600 px-2.5 py-0.5 rounded-full font-semibold truncate max-w-[160px]"></span>
       </div>
@@ -271,6 +285,26 @@
 
   <!-- アプリJSロジック -->
   <script>
+    // PWA Service Worker の登録
+    if ('serviceWorker' in navigator) {
+      const swCode = `
+        self.addEventListener('install', (e) => self.skipWaiting());
+        self.addEventListener('activate', (e) => self.clients.claim());
+        self.addEventListener('fetch', (e) => e.respondWith(fetch(e.request)));
+      `;
+      const blob = new Blob([swCode], { type: 'application/javascript' });
+      navigator.serviceWorker.register(URL.createObjectURL(blob)).catch(() => {});
+    }
+
+    // PWA インストールプロンプト制御
+    let deferredPrompt = null;
+    window.addEventListener('beforeinstallprompt', (e) => {
+      e.preventDefault();
+      deferredPrompt = e;
+      const installBtn = document.getElementById('btn-pwa-install');
+      if (installBtn) installBtn.classList.remove('hidden');
+    });
+
     const SAMPLE_FOLDERS = [
       { id: "f-1", name: "ニュース・IT", parentId: null },
       { id: "f-2", name: "人工知能 (AI)", parentId: "f-1" }
@@ -339,6 +373,8 @@
     let currentTextId = null;
     let targetParentFolderId = null;
     let deleteTarget = null;
+    let expandedFolderIds = new Set(); // 開いているフォルダのID集合
+    let isTreeInit = false;
 
     let config = {
       showSlash: true,
@@ -349,7 +385,6 @@
     let tappedChunks = {};
 
     document.addEventListener('DOMContentLoaded', () => {
-      // 安全なデータ読み込み（自己修復機能付き）
       try {
         const storedFolders = localStorage.getItem('chunk_reader_folders_v5');
         const storedTexts = localStorage.getItem('chunk_reader_texts_v5');
@@ -364,7 +399,6 @@
         texts = [];
       }
 
-      // データが空・破壊されている場合はサンプルデータで自動復元
       if (!Array.isArray(folders) || folders.length === 0 || !Array.isArray(texts) || texts.length === 0) {
         folders = JSON.parse(JSON.stringify(SAMPLE_FOLDERS));
         texts = JSON.parse(JSON.stringify(SAMPLE_TEXTS));
@@ -411,6 +445,18 @@
     }
 
     function setupEventListeners() {
+      // PWAインストールボタンクリック
+      document.getElementById('btn-pwa-install').onclick = async () => {
+        if (deferredPrompt) {
+          deferredPrompt.prompt();
+          const { outcome } = await deferredPrompt.userChoice;
+          if (outcome === 'accepted') {
+            document.getElementById('btn-pwa-install').classList.add('hidden');
+          }
+          deferredPrompt = null;
+        }
+      };
+
       document.getElementById('nav-reader').onclick = () => switchView('reader');
       document.getElementById('nav-library').onclick = () => switchView('library');
       document.getElementById('nav-import').onclick = () => switchView('import');
@@ -501,30 +547,57 @@
       });
     }
 
+    // ライブラリ画面の階層ツリー描画（インデント揃え & 格納・展開対応）
     function renderTree() {
       const container = document.getElementById('tree-container');
       container.innerHTML = '';
 
+      // 初期状態：すべてのフォルダを展開状態に設定
+      if (!isTreeInit && folders.length > 0) {
+        folders.forEach(f => expandedFolderIds.add(f.id));
+        isTreeInit = true;
+      }
+
       function buildFolderTree(parentId, level) {
         const ul = document.createElement('ul');
-        ul.className = level > 0 ? "pl-3 border-l border-slate-200 space-y-1 mt-1" : "space-y-1";
+        // サブ階層の美しいインデント設定（ガイドライン付き）
+        ul.className = level > 0 ? "pl-4 ml-3 border-l-2 border-slate-200/80 space-y-1 my-1" : "space-y-1";
 
         const subFolders = folders.filter(f => f.parentId === parentId);
         subFolders.forEach(f => {
           const li = document.createElement('li');
-          
+          const isExpanded = expandedFolderIds.has(f.id);
+
+          // フォルダ内の件数カウント（フォルダ＋文章）
+          const childTextCount = texts.filter(t => t.folderId === f.id).length;
+          const childFolderCount = folders.filter(sub => sub.parentId === f.id).length;
+          const totalItems = childTextCount + childFolderCount;
+
           const folderHeader = document.createElement('div');
-          folderHeader.className = "flex items-center justify-between p-2 rounded-xl text-slate-700 bg-slate-50 font-medium active:bg-slate-100 transition";
+          folderHeader.className = "flex items-center justify-between p-2.5 rounded-xl text-slate-700 bg-slate-100/80 hover:bg-slate-200/60 font-semibold cursor-pointer transition select-none group";
+          
           folderHeader.innerHTML = `
-            <span class="flex items-center gap-2 truncate">
-              <i class="fa-solid fa-folder text-amber-400"></i>
-              <span class="truncate">${f.name}</span>
-            </span>
-            <div class="flex items-center gap-2">
-              <button title="サブフォルダ追加" class="btn-add-sub p-1 text-slate-400 hover:text-indigo-600"><i class="fa-solid fa-plus"></i></button>
-              <button title="フォルダ削除" class="btn-del-folder p-1 text-slate-400 hover:text-rose-600"><i class="fa-solid fa-trash-can"></i></button>
+            <div class="flex items-center gap-2 truncate">
+              <i class="fa-solid ${isExpanded ? 'fa-chevron-down' : 'fa-chevron-right'} text-slate-400 text-xs w-3"></i>
+              <i class="fa-solid ${isExpanded ? 'fa-folder-open text-amber-500' : 'fa-folder text-amber-400'} text-base"></i>
+              <span class="truncate text-sm text-slate-800 font-bold">${f.name}</span>
+              <span class="text-[10px] font-medium text-slate-400 bg-white/80 px-2 py-0.5 rounded-full border border-slate-200/60">${totalItems}件</span>
+            </div>
+            <div class="flex items-center gap-1">
+              <button title="サブフォルダ追加" class="btn-add-sub p-1.5 text-slate-400 hover:text-indigo-600 hover:bg-white rounded-lg transition"><i class="fa-solid fa-plus text-xs"></i></button>
+              <button title="フォルダ削除" class="btn-del-folder p-1.5 text-slate-400 hover:text-rose-600 hover:bg-white rounded-lg transition"><i class="fa-solid fa-trash-can text-xs"></i></button>
             </div>
           `;
+
+          // フォルダタップで格納/展開を切替
+          folderHeader.onclick = (e) => {
+            if (expandedFolderIds.has(f.id)) {
+              expandedFolderIds.delete(f.id);
+            } else {
+              expandedFolderIds.add(f.id);
+            }
+            renderTree();
+          };
 
           folderHeader.querySelector('.btn-add-sub').onclick = (e) => {
             e.stopPropagation();
@@ -540,22 +613,28 @@
           };
 
           li.appendChild(folderHeader);
-          li.appendChild(buildFolderTree(f.id, level + 1));
+
+          // 展開中のみ配下要素（サブフォルダ & 英文）を表示
+          if (isExpanded) {
+            li.appendChild(buildFolderTree(f.id, level + 1));
+          }
           ul.appendChild(li);
         });
 
+        // フォルダ内の文章一覧（インデントされて頭が揃う）
         const childTexts = texts.filter(t => t.folderId === parentId);
         childTexts.forEach(t => {
           const li = document.createElement('li');
           const isActive = t.id === currentTextId;
-          li.className = `p-2 pl-3 rounded-xl cursor-pointer transition flex items-center gap-2 ${
-            isActive ? 'bg-indigo-50 text-indigo-700 font-bold border border-indigo-100' : 'text-slate-600 active:bg-slate-100'
+          li.className = `p-2 px-3 rounded-xl cursor-pointer transition flex items-center gap-2.5 ${
+            isActive ? 'bg-indigo-600 text-white font-bold shadow-sm shadow-indigo-200' : 'text-slate-700 hover:bg-slate-100/80 bg-white border border-slate-200/50'
           }`;
           li.innerHTML = `
-            <i class="fa-regular fa-file-lines text-slate-400"></i>
-            <span class="truncate">${t.title}</span>
+            <i class="fa-regular fa-file-lines ${isActive ? 'text-indigo-200' : 'text-slate-400'} text-xs flex-shrink-0"></i>
+            <span class="truncate text-xs md:text-sm font-medium tracking-tight">${t.title}</span>
           `;
-          li.onclick = () => {
+          li.onclick = (e) => {
+            e.stopPropagation();
             currentTextId = t.id;
             tappedChunks = {};
             renderTree();
@@ -630,7 +709,7 @@
         return;
       }
 
-      // 和訳表示モード判定（クラス付与で余白を自動コントロール）
+      // 和訳表示モード判定
       const isNoTrans = config.transMode === 'none';
       if (isNoTrans) {
         readerContent.classList.add('mode-no-trans');
@@ -646,7 +725,6 @@
           const chunkKey = `${sIdx}-${cIdx}`;
           const isLastChunk = cIdx === sentence.chunks.length - 1;
 
-          // チャンク外枠
           const chunkWrap = document.createElement('div');
           chunkWrap.className = "chunk-box chunk-touch cursor-pointer";
           
@@ -660,7 +738,6 @@
           const enSpan = document.createElement('span');
           enSpan.className = "chunk-en select-none tracking-wide text-slate-800";
           
-          // 1単語目だけ赤字化
           if (config.showHighlight && chunk.is_important) {
             const words = chunk.en.split(' ');
             if (words.length > 0) {
@@ -684,7 +761,6 @@
 
           chunkWrap.appendChild(enSpan);
 
-          // 和訳制御（1pxピタッと英文直下に吸着）
           let showJa = false;
           if (config.transMode === 'all') showJa = true;
           if (config.transMode === 'tap' && tappedChunks[chunkKey]) showJa = true;
@@ -698,7 +774,6 @@
 
           sentenceDiv.appendChild(chunkWrap);
 
-          // スラッシュ記号
           if (config.showSlash && !isLastChunk) {
             const slashSpan = document.createElement('span');
             slashSpan.className = "slash-mark";
@@ -733,6 +808,7 @@
       };
 
       folders.push(newFolder);
+      expandedFolderIds.add(newFolder.id); // 新規フォルダは自動展開
       saveToLocalStorage();
       closeFolderModal();
       renderTree();
@@ -769,6 +845,7 @@
 
         texts.push(newText);
         currentTextId = newText.id;
+        if (folderId) expandedFolderIds.add(folderId); // 追加先フォルダを展開
         saveToLocalStorage();
 
         document.getElementById('import-title').value = '';
