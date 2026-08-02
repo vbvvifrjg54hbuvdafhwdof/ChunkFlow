@@ -23,7 +23,7 @@
   <header class="bg-white border-b border-slate-200/80 sticky top-0 z-30 shadow-sm">
     <div class="max-w-7xl mx-auto px-4 py-3 flex flex-wrap items-center justify-between gap-4">
       
-      <!-- ロゴ & 画面切り替えタブ -->
+      <!-- ロゴ & ナビゲーション -->
       <div class="flex items-center space-x-4">
         <div class="flex items-center gap-2">
           <div class="w-9 h-9 bg-indigo-600 rounded-xl flex items-center justify-center text-white shadow-md shadow-indigo-100">
@@ -32,16 +32,13 @@
           <h1 class="text-xl font-bold tracking-tight text-slate-800 hidden sm:block">ChunkReader</h1>
         </div>
 
-        <!-- 画面切替ナビゲーション -->
+        <!-- 画面切替タブ -->
         <nav class="flex bg-slate-100 p-1 rounded-xl text-xs font-semibold">
           <button id="nav-reader" class="px-3.5 py-1.5 rounded-lg transition bg-white text-indigo-600 shadow-sm">
             <i class="fa-solid fa-book-reader mr-1"></i> 読解
           </button>
           <button id="nav-import" class="px-3.5 py-1.5 rounded-lg transition text-slate-600 hover:text-slate-900">
             <i class="fa-solid fa-plus mr-1"></i> JSON追加
-          </button>
-          <button id="nav-list" class="px-3.5 py-1.5 rounded-lg transition text-slate-600 hover:text-slate-900 md:hidden">
-            <i class="fa-solid fa-list mr-1"></i> 一覧
           </button>
         </nav>
       </div>
@@ -78,20 +75,23 @@
   <!-- メインレイアウト -->
   <div class="flex-1 flex max-w-7xl w-full mx-auto">
     
-    <!-- サイドバー：登録英文一覧 (PC用) -->
-    <aside id="sidebar" class="w-72 bg-white border-r border-slate-200/80 flex-shrink-0 flex-col justify-between hidden md:flex">
-      <div class="p-5">
-        <button id="btn-sidebar-add" class="w-full py-3 px-4 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold text-sm rounded-xl shadow-md shadow-indigo-100 transition flex items-center justify-center gap-2 mb-6">
-          <i class="fa-solid fa-plus text-xs"></i> 新しいJSONを追加
+    <!-- サイドバー：フォルダ＆ライブラリツリー -->
+    <aside id="sidebar" class="w-80 bg-white border-r border-slate-200/80 flex-shrink-0 flex flex-col justify-between">
+      <div class="p-4 overflow-y-auto max-h-[calc(100vh-120px)]">
+        
+        <!-- フォルダ追加ボタン -->
+        <button id="btn-add-root-folder" class="w-full py-2.5 px-4 bg-slate-100 hover:bg-slate-200/80 text-slate-700 font-semibold text-xs rounded-xl border border-slate-200 transition flex items-center justify-center gap-2 mb-4">
+          <i class="fa-solid fa-folder-plus text-indigo-600"></i> ＋ 新しいフォルダを追加
         </button>
 
-        <h2 class="text-[11px] font-bold text-slate-400 uppercase tracking-wider px-2 mb-3">ライブラリ</h2>
-        <ul id="text-list" class="space-y-1">
-          <!-- 英文リスト -->
-        </ul>
+        <h2 class="text-[11px] font-bold text-slate-400 uppercase tracking-wider px-2 mb-2">ライブラリ</h2>
+        
+        <!-- フォルダツリー領域 -->
+        <div id="tree-container" class="space-y-1 text-xs"></div>
       </div>
-      <div class="p-4 border-t border-slate-100 text-[11px] text-slate-400 text-center font-medium">
-        データはブラウザ内に保存されます
+
+      <div class="p-3 border-t border-slate-100 text-[11px] text-slate-400 text-center font-medium">
+        データはブラウザ内に自動保存されます
       </div>
     </aside>
 
@@ -102,7 +102,10 @@
       <section id="view-reader" class="max-w-4xl mx-auto bg-white rounded-3xl p-6 md:p-12 shadow-sm border border-slate-200/60 min-h-[550px] flex flex-col justify-between">
         <div>
           <div class="flex items-center justify-between border-b border-slate-100 pb-5 mb-8">
-            <h2 id="current-title" class="text-xl md:text-2xl font-bold text-slate-800 tracking-tight"></h2>
+            <div>
+              <span id="current-folder-path" class="text-xs text-indigo-500 font-semibold mb-1 block"></span>
+              <h2 id="current-title" class="text-xl md:text-2xl font-bold text-slate-800 tracking-tight"></h2>
+            </div>
             <button id="btn-open-delete" class="w-9 h-9 rounded-xl flex items-center justify-center text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition" title="削除">
               <i class="fa-solid fa-trash-can text-sm"></i>
             </button>
@@ -115,11 +118,11 @@
 
         <div id="empty-state" class="hidden text-center py-20">
           <i class="fa-solid fa-folder-open text-4xl text-slate-300 mb-3"></i>
-          <p class="text-slate-500 font-medium">文章がありません。「JSON追加」から追加してください。</p>
+          <p class="text-slate-500 font-medium">文章が選択されていないか、ライブラリが空です。</p>
         </div>
       </section>
 
-      <!-- VIEW 2: JSON追加画面 (画面全体を使った専用フォーム) -->
+      <!-- VIEW 2: JSON追加画面 -->
       <section id="view-import" class="max-w-3xl mx-auto bg-white rounded-3xl p-6 md:p-10 shadow-sm border border-slate-200/60 hidden space-y-6">
         <div class="border-b border-slate-100 pb-4">
           <h2 class="text-xl font-bold text-slate-800">新しい英文（JSON）を登録</h2>
@@ -127,19 +130,27 @@
         </div>
 
         <div class="space-y-4">
+          <!-- 保存先フォルダ選択 -->
           <div>
-            <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">タイトル（任意）</label>
+            <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">保存先フォルダ</label>
+            <select id="import-folder-select" class="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition">
+              <!-- 動的にフォルダ階層が挿入されます -->
+            </select>
+          </div>
+
+          <div>
+            <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">タイトル（任意）</label>
             <input type="text" id="import-title" placeholder="例: 今日のニュース解説" class="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition">
           </div>
 
           <div>
-            <div class="flex items-center justify-between mb-2">
+            <div class="flex items-center justify-between mb-1.5">
               <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider">JSONコード</label>
               <button id="btn-paste-clipboard" type="button" class="text-xs font-semibold text-indigo-600 hover:text-indigo-800 flex items-center gap-1 px-2 py-1 bg-indigo-50 rounded-lg transition">
                 <i class="fa-solid fa-paste"></i> クリップボードから貼り付け
               </button>
             </div>
-            <textarea id="import-json" rows="12" placeholder='[&#10;  {&#10;    "sentence_id": 1,&#10;    "chunks": [ ... ]&#10;  }&#10;]' class="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl font-mono text-xs focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition"></textarea>
+            <textarea id="import-json" rows="10" placeholder='[&#10;  {&#10;    "sentence_id": 1,&#10;    "chunks": [ ... ]&#10;  }&#10;]' class="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl font-mono text-xs focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition"></textarea>
           </div>
 
           <!-- エラー表示エリア -->
@@ -152,24 +163,30 @@
         </div>
       </section>
 
-      <!-- VIEW 3: モバイル用ライブラリ一覧画面 -->
-      <section id="view-list" class="max-w-xl mx-auto bg-white rounded-3xl p-6 shadow-sm border border-slate-200/60 hidden md:hidden space-y-4">
-        <h2 class="text-lg font-bold text-slate-800 border-b border-slate-100 pb-3">保存した英文一覧</h2>
-        <ul id="mobile-text-list" class="space-y-2"></ul>
-      </section>
-
     </main>
 
   </div>
 
-  <!-- 【二重確認ダイアログ】削除確認 -->
+  <!-- 【モーダル 1】フォルダ作成ダイアログ -->
+  <div id="modal-folder" class="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-50 flex items-center justify-center hidden p-4">
+    <div class="bg-white rounded-3xl max-w-sm w-full p-6 shadow-2xl border border-slate-100 space-y-4">
+      <h3 id="modal-folder-title" class="text-base font-bold text-slate-800">新しいフォルダを作成</h3>
+      <input type="text" id="folder-name-input" placeholder="フォルダ名を入力" class="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition">
+      <div class="flex justify-end gap-2 pt-2">
+        <button id="btn-cancel-folder" class="px-4 py-2 rounded-xl text-slate-600 hover:bg-slate-100 text-xs font-semibold">キャンセル</button>
+        <button id="btn-save-folder" class="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold">作成</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 【モーダル 2】二重確認用 削除ダイアログ -->
   <div id="modal-delete" class="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-50 flex items-center justify-center hidden p-4">
     <div class="bg-white rounded-3xl max-w-md w-full p-6 md:p-8 shadow-2xl border border-slate-100 space-y-6 text-center">
       <div class="w-12 h-12 bg-rose-50 text-rose-500 rounded-2xl flex items-center justify-center mx-auto text-xl">
         <i class="fa-solid fa-triangle-exclamation"></i>
       </div>
       <div class="space-y-2">
-        <h3 class="text-lg font-bold text-slate-800">本当に削除しますか？</h3>
+        <h3 id="delete-modal-heading" class="text-lg font-bold text-slate-800">本当に削除しますか？</h3>
         <p id="delete-target-title" class="text-sm text-slate-500 font-medium px-4 break-words"></p>
         <p class="text-xs text-rose-500 font-medium">この操作は取り消せません。</p>
       </div>
@@ -182,47 +199,77 @@
 
   <!-- アプリJSロジック -->
   <script>
-    // サンプルJSONデータ
-    const SAMPLE_DATA = {
-      id: "sample-1",
-      title: "サンプル：AIと将来の仕事",
-      data: [
-        {
-          "sentence_id": 1,
-          "chunks": [
-            { "en": "In recent years,", "is_important": false, "ja": "近年、" },
-            { "en": "artificial intelligence has advanced", "is_important": false, "ja": "人工知能は進化してきた" },
-            { "en": "at an unprecedented speed,", "is_important": false, "ja": "前例のない速度で、" },
-            { "en": "changing the way", "is_important": false, "ja": "〜という方法を変えながら" },
-            { "en": "we live and work.", "is_important": false, "ja": "私たちが生活し働く（方法を）。" }
-          ]
-        },
-        {
-          "sentence_id": 2,
-          "chunks": [
-            { "en": "Although many experts predict", "is_important": true, "ja": "多くの専門家は〜と予測しているが、" },
-            { "en": "that AI will automate routine tasks", "is_important": false, "ja": "AIが定型業務を自動化し" },
-            { "en": "and increase productivity,", "is_important": false, "ja": "生産性を高めると（予測しているが）、" },
-            { "en": "others worry", "is_important": false, "ja": "ほかの人々は懸念している" },
-            { "en": "that it could lead to", "is_important": false, "ja": "それが〜につながる可能性があると" },
-            { "en": "widespread job loss.", "is_important": false, "ja": "広範な雇用喪失に。" }
-          ]
-        },
-        {
-          "sentence_id": 3,
-          "chunks": [
-            { "en": "However,", "is_important": true, "ja": "しかしながら、" },
-            { "en": "history shows", "is_important": false, "ja": "歴史が示しているのは" },
-            { "en": "that technological revolutions", "is_important": false, "ja": "技術革命が" },
-            { "en": "usually create new types of jobs", "is_important": false, "ja": "通常、新しい種類の仕事を生み出すということだ" },
-            { "en": "while destroying old ones.", "is_important": true, "ja": "古いものを破壊する一方で。" }
-          ]
-        }
-      ]
-    };
+    // 初期サンプルデータ
+    const SAMPLE_FOLDERS = [
+      { id: "f-1", name: "ニュース・IT", parentId: null },
+      { id: "f-2", name: "人工知能 (AI)", parentId: "f-1" }
+    ];
 
+    const SAMPLE_TEXTS = [
+      {
+        id: "text-1",
+        folderId: "f-2",
+        title: "サンプル：AIと将来の仕事",
+        data: [
+          {
+            "sentence_id": 1,
+            "chunks": [
+              { "en": "In recent years,", "is_important": false, "ja": "近年、" },
+              { "en": "artificial intelligence has advanced", "is_important": false, "ja": "人工知能は進化してきた" },
+              { "en": "at an unprecedented speed,", "is_important": false, "ja": "前例のない速度で、" },
+              { "en": "changing the way", "is_important": false, "ja": "〜という方法を変えながら" },
+              { "en": "we live and work.", "is_important": false, "ja": "私たちが生活し働く（方法を）。" }
+            ]
+          },
+          {
+            "sentence_id": 2,
+            "chunks": [
+              { "en": "Although many experts predict", "is_important": true, "ja": "多くの専門家は〜と予測しているが、" },
+              { "en": "that AI will automate routine tasks", "is_important": false, "ja": "AIが定型業務を自動化し" },
+              { "en": "and increase productivity,", "is_important": false, "ja": "生産性を高めると（予測しているが）、" },
+              { "en": "others worry", "is_important": false, "ja": "ほかの人々は懸念している" },
+              { "en": "that it could lead to", "is_important": false, "ja": "それが〜につながる可能性があると" },
+              { "en": "widespread job loss.", "is_important": false, "ja": "広範な雇用喪失に。" }
+            ]
+          },
+          {
+            "sentence_id": 3,
+            "chunks": [
+              { "en": "However,", "is_important": true, "ja": "しかしながら、" },
+              { "en": "history shows", "is_important": false, "ja": "歴史が示しているのは" },
+              { "en": "that technological revolutions", "is_important": false, "ja": "技術革命が" },
+              { "en": "usually create new types of jobs", "is_important": false, "ja": "通常、新しい種類の仕事を生み出すということだ" },
+              { "en": "while destroying old ones.", "is_important": true, "ja": "古いものを破壊する一方で。" }
+            ]
+          },
+          {
+            "sentence_id": 4,
+            "chunks": [
+              { "en": "For instance,", "is_important": true, "ja": "例えば、" },
+              { "en": "while traditional manufacturing jobs have declined,", "is_important": true, "ja": "従来の製造業の仕事が減少した一方で、" },
+              { "en": "demand for software engineers and data analysts", "is_important": false, "ja": "ソフトウェアエンジニアやデータアナリストの需要は" },
+              { "en": "has skyrocketed.", "is_important": false, "ja": "急増した。" }
+            ]
+          },
+          {
+            "sentence_id": 5,
+            "chunks": [
+              { "en": "In addition,", "is_important": true, "ja": "さらに、" },
+              { "en": "lifelong learning will become essential", "is_important": false, "ja": "生涯学習が不可欠になるだろう" },
+              { "en": "for workers.", "is_important": false, "ja": "労働者にとって。" }
+            ]
+          }
+        ]
+      }
+    ];
+
+    // アプリ状態
+    let folders = [];
     let texts = [];
     let currentTextId = null;
+    let targetParentFolderId = null; // サブフォルダ作成時の親ID
+    let deleteTarget = null; // { type: 'text'|'folder', id: '' }
+
     let config = {
       showSlash: true,
       showHighlight: true,
@@ -232,35 +279,37 @@
     let tappedChunks = {};
 
     document.addEventListener('DOMContentLoaded', () => {
-      const stored = localStorage.getItem('chunk_reader_texts_v4');
-      if (stored) {
-        texts = JSON.parse(stored);
+      const storedFolders = localStorage.getItem('chunk_reader_folders_v5');
+      const storedTexts = localStorage.getItem('chunk_reader_texts_v5');
+
+      if (storedFolders && storedTexts) {
+        folders = JSON.parse(storedFolders);
+        texts = JSON.parse(storedTexts);
       } else {
-        texts = [SAMPLE_DATA];
+        folders = SAMPLE_FOLDERS;
+        texts = SAMPLE_TEXTS;
         saveToLocalStorage();
       }
+
       if (texts.length > 0) currentTextId = texts[0].id;
 
       setupEventListeners();
       updateToggleStyles();
-      renderSidebar();
+      renderTree();
       switchView('reader');
     });
 
     function saveToLocalStorage() {
-      localStorage.setItem('chunk_reader_texts_v4', JSON.stringify(texts));
+      localStorage.setItem('chunk_reader_folders_v5', JSON.stringify(folders));
+      localStorage.setItem('chunk_reader_texts_v5', JSON.stringify(texts));
     }
 
-    // 画面ビュー切替（reader, import, list）
     function switchView(viewName) {
       document.getElementById('view-reader').classList.toggle('hidden', viewName !== 'reader');
       document.getElementById('view-import').classList.toggle('hidden', viewName !== 'import');
-      document.getElementById('view-list').classList.toggle('hidden', viewName !== 'list');
 
-      // ツールバーは読解画面の時のみ表示
       document.getElementById('toolbar-controls').style.visibility = (viewName === 'reader') ? 'visible' : 'hidden';
 
-      // ナビボタンのハイライト
       document.getElementById('nav-reader').className = viewName === 'reader'
         ? "px-3.5 py-1.5 rounded-lg transition bg-white text-indigo-600 shadow-sm font-bold"
         : "px-3.5 py-1.5 rounded-lg transition text-slate-600 hover:text-slate-900";
@@ -269,29 +318,27 @@
         ? "px-3.5 py-1.5 rounded-lg transition bg-white text-indigo-600 shadow-sm font-bold"
         : "px-3.5 py-1.5 rounded-lg transition text-slate-600 hover:text-slate-900";
 
-      document.getElementById('nav-list').className = viewName === 'list'
-        ? "px-3.5 py-1.5 rounded-lg transition bg-white text-indigo-600 shadow-sm font-bold md:hidden"
-        : "px-3.5 py-1.5 rounded-lg transition text-slate-600 hover:text-slate-900 md:hidden";
-
       if (viewName === 'reader') renderReader();
-      if (viewName === 'list') renderMobileList();
+      if (viewName === 'import') renderFolderSelectOptions();
     }
 
     function setupEventListeners() {
-      // ナビゲーション
       document.getElementById('nav-reader').onclick = () => switchView('reader');
       document.getElementById('nav-import').onclick = () => switchView('import');
-      document.getElementById('nav-list').onclick = () => switchView('list');
-      document.getElementById('btn-sidebar-add').onclick = () => switchView('import');
       document.getElementById('btn-cancel-import').onclick = () => switchView('reader');
 
-      // クリップボードからの自動貼り付けボタン
+      // フォルダ追加ボタン
+      document.getElementById('btn-add-root-folder').onclick = () => openFolderModal(null);
+      document.getElementById('btn-cancel-folder').onclick = closeFolderModal;
+      document.getElementById('btn-save-folder').onclick = handleSaveFolder;
+
+      // クリップボード貼り付け
       document.getElementById('btn-paste-clipboard').onclick = async () => {
         try {
           const text = await navigator.clipboard.readText();
           document.getElementById('import-json').value = text;
         } catch (err) {
-          alert('クリップボードの読み取り権限がないか、対応していません。手動でテキストエリアに貼り付けてください。');
+          alert('クリップボードの読み取り権限がないか、対応していません。手動で貼り付けてください。');
         }
       };
 
@@ -323,22 +370,21 @@
         };
       });
 
-      // JSON登録
+      // JSON保存
       document.getElementById('btn-save-import').onclick = handleSaveImport;
 
-      // 削除ダイアログ
-      const modalDelete = document.getElementById('modal-delete');
+      // 削除モーダル
       document.getElementById('btn-open-delete').onclick = () => {
         const activeText = texts.find(t => t.id === currentTextId);
         if (!activeText) return;
+        deleteTarget = { type: 'text', id: activeText.id };
+        document.getElementById('delete-modal-heading').textContent = "文章を削除しますか？";
         document.getElementById('delete-target-title').textContent = `「${activeText.title}」`;
-        modalDelete.classList.remove('hidden');
+        document.getElementById('modal-delete').classList.remove('hidden');
       };
-      document.getElementById('btn-cancel-delete').onclick = () => modalDelete.classList.add('hidden');
-      document.getElementById('btn-confirm-delete').onclick = () => {
-        modalDelete.classList.add('hidden');
-        handleDeleteText();
-      };
+
+      document.getElementById('btn-cancel-delete').onclick = () => document.getElementById('modal-delete').classList.add('hidden');
+      document.getElementById('btn-confirm-delete').onclick = handleConfirmDelete;
     }
 
     function updateToggleStyles() {
@@ -367,58 +413,125 @@
       });
     }
 
-    function renderSidebar() {
-      const textListEl = document.getElementById('text-list');
-      textListEl.innerHTML = '';
-      
-      texts.forEach(t => {
-        const li = document.createElement('li');
-        const isActive = t.id === currentTextId;
-        li.className = `px-3.5 py-3 rounded-2xl cursor-pointer text-xs font-semibold transition flex items-center justify-between ${
-          isActive ? 'bg-indigo-50/80 text-indigo-700 shadow-sm border border-indigo-100' : 'text-slate-600 hover:bg-slate-50'
-        }`;
-        li.innerHTML = `
-          <span class="truncate pr-2">${t.title}</span>
-          ${isActive ? '<i class="fa-solid fa-angle-right text-indigo-500"></i>' : ''}
-        `;
-        li.onclick = () => {
-          currentTextId = t.id;
-          tappedChunks = {};
-          renderSidebar();
-          switchView('reader');
-        };
-        textListEl.appendChild(li);
-      });
+    // フォルダ階層ツリー描画
+    function renderTree() {
+      const container = document.getElementById('tree-container');
+      container.innerHTML = '';
+
+      function buildFolderTree(parentId, level) {
+        const ul = document.createElement('ul');
+        ul.className = level > 0 ? "pl-3 border-l border-slate-200/80 space-y-1 mt-1" : "space-y-1";
+
+        // サブフォルダ群
+        const subFolders = folders.filter(f => f.parentId === parentId);
+        subFolders.forEach(f => {
+          const li = document.createElement('li');
+          
+          const folderHeader = document.createElement('div');
+          folderHeader.className = "flex items-center justify-between p-1.5 rounded-lg text-slate-700 hover:bg-slate-100 transition group font-medium";
+          folderHeader.innerHTML = `
+            <span class="flex items-center gap-1.5 truncate">
+              <i class="fa-solid fa-folder text-amber-400"></i>
+              <span class="truncate">${f.name}</span>
+            </span>
+            <div class="opacity-0 group-hover:opacity-100 transition flex items-center gap-1">
+              <button title="サブフォルダ追加" class="btn-add-sub p-1 hover:text-indigo-600"><i class="fa-solid fa-plus text-[10px]"></i></button>
+              <button title="フォルダ削除" class="btn-del-folder p-1 hover:text-rose-600"><i class="fa-solid fa-trash-can text-[10px]"></i></button>
+            </div>
+          `;
+
+          // サブフォルダ追加
+          folderHeader.querySelector('.btn-add-sub').onclick = (e) => {
+            e.stopPropagation();
+            openFolderModal(f.id);
+          };
+
+          // フォルダ削除
+          folderHeader.querySelector('.btn-del-folder').onclick = (e) => {
+            e.stopPropagation();
+            deleteTarget = { type: 'folder', id: f.id };
+            document.getElementById('delete-modal-heading').textContent = "フォルダを削除しますか？";
+            document.getElementById('delete-target-title').textContent = `「${f.name}」とその中身の全データ`;
+            document.getElementById('modal-delete').classList.remove('hidden');
+          };
+
+          li.appendChild(folderHeader);
+
+          // フォルダ内のテキスト＆子フォルダを再帰呼び出し
+          const childrenUl = buildFolderTree(f.id, level + 1);
+          li.appendChild(childrenUl);
+
+          ul.appendChild(li);
+        });
+
+        // フォルダ内のテキスト群
+        const childTexts = texts.filter(t => t.folderId === parentId);
+        childTexts.forEach(t => {
+          const li = document.createElement('li');
+          const isActive = t.id === currentTextId;
+          li.className = `p-1.5 pl-2 rounded-lg cursor-pointer transition flex items-center gap-1.5 ${
+            isActive ? 'bg-indigo-50 text-indigo-700 font-bold shadow-sm' : 'text-slate-600 hover:bg-slate-100'
+          }`;
+          li.innerHTML = `
+            <i class="fa-regular fa-file-lines text-slate-400"></i>
+            <span class="truncate">${t.title}</span>
+          `;
+          li.onclick = () => {
+            currentTextId = t.id;
+            tappedChunks = {};
+            renderTree();
+            switchView('reader');
+          };
+          ul.appendChild(li);
+        });
+
+        return ul;
+      }
+
+      container.appendChild(buildFolderTree(null, 0));
     }
 
-    function renderMobileList() {
-      const mobileListEl = document.getElementById('mobile-text-list');
-      mobileListEl.innerHTML = '';
-      texts.forEach(t => {
-        const li = document.createElement('li');
-        const isActive = t.id === currentTextId;
-        li.className = `p-4 rounded-2xl border text-sm font-semibold flex justify-between items-center ${
-          isActive ? 'border-indigo-500 bg-indigo-50 text-indigo-700' : 'border-slate-200 bg-slate-50 text-slate-700'
-        }`;
-        li.textContent = t.title;
-        li.onclick = () => {
-          currentTextId = t.id;
-          tappedChunks = {};
-          renderSidebar();
-          switchView('reader');
-        };
-        mobileListEl.appendChild(li);
-      });
+    // JSON登録画面のフォルダ選択ドロップダウン生成
+    function renderFolderSelectOptions() {
+      const select = document.getElementById('import-folder-select');
+      select.innerHTML = '<option value="">(ルート / フォルダなし)</option>';
+
+      function addOptions(parentId, prefix) {
+        const sub = folders.filter(f => f.parentId === parentId);
+        sub.forEach(f => {
+          const opt = document.createElement('option');
+          opt.value = f.id;
+          opt.textContent = prefix + f.name;
+          select.appendChild(opt);
+          addOptions(f.id, prefix + "　");
+        });
+      }
+      addOptions(null, "📂 ");
     }
 
+    // フォルダパス文字列の取得
+    function getFolderPath(folderId) {
+      if (!folderId) return "";
+      const path = [];
+      let curr = folders.find(f => f.id === folderId);
+      while (curr) {
+        path.unshift(curr.name);
+        curr = folders.find(f => f.id === curr.parentId);
+      }
+      return path.join(' / ');
+    }
+
+    // 読解画面描画
     function renderReader() {
       const activeText = texts.find(t => t.id === currentTextId);
       const readerContent = document.getElementById('reader-content');
       const currentTitleEl = document.getElementById('current-title');
+      const pathEl = document.getElementById('current-folder-path');
       const emptyState = document.getElementById('empty-state');
 
       if (!activeText) {
         currentTitleEl.textContent = "文章がありません";
+        pathEl.textContent = "";
         readerContent.innerHTML = '';
         emptyState.classList.remove('hidden');
         return;
@@ -426,6 +539,7 @@
 
       emptyState.classList.add('hidden');
       currentTitleEl.textContent = activeText.title;
+      pathEl.textContent = getFolderPath(activeText.folderId);
       readerContent.innerHTML = '';
 
       if (config.isRaw) {
@@ -458,17 +572,33 @@
           };
 
           const enSpan = document.createElement('span');
-          enSpan.className = "font-medium select-none tracking-wide";
+          enSpan.className = "font-medium select-none tracking-wide text-slate-800";
           
+          // ★ 赤文字ハイライト（1単語目だけ赤にする）
           if (config.showHighlight && chunk.is_important) {
-            enSpan.classList.add('text-rose-600', 'font-semibold', 'bg-rose-50/80', 'px-1', 'rounded');
+            const words = chunk.en.split(' ');
+            if (words.length > 0) {
+              const firstWord = words[0];
+              const restWords = words.slice(1).join(' ');
+
+              const redWordSpan = document.createElement('span');
+              redWordSpan.className = "text-rose-600 font-semibold bg-rose-50/80 px-1 rounded";
+              redWordSpan.textContent = firstWord;
+
+              enSpan.appendChild(redWordSpan);
+              if (restWords) {
+                enSpan.appendChild(document.createTextNode(' ' + restWords));
+              }
+            } else {
+              enSpan.textContent = chunk.en;
+            }
           } else {
-            enSpan.classList.add('text-slate-800');
+            enSpan.textContent = chunk.en;
           }
-          
-          enSpan.textContent = chunk.en;
+
           chunkWrap.appendChild(enSpan);
 
+          // 和訳制御
           let showJa = false;
           if (config.transMode === 'all') showJa = true;
           if (config.transMode === 'tap' && tappedChunks[chunkKey]) showJa = true;
@@ -494,13 +624,42 @@
       });
     }
 
-    // 厳格なJSON登録処理
+    // フォルダ追加モーダル関係
+    function openFolderModal(parentId) {
+      targetParentFolderId = parentId;
+      document.getElementById('modal-folder-title').textContent = parentId ? "サブフォルダを追加" : "新しいフォルダを追加";
+      document.getElementById('folder-name-input').value = '';
+      document.getElementById('modal-folder').classList.remove('hidden');
+    }
+
+    function closeFolderModal() {
+      document.getElementById('modal-folder').classList.add('hidden');
+    }
+
+    function handleSaveFolder() {
+      const name = document.getElementById('folder-name-input').value.trim();
+      if (!name) return;
+
+      const newFolder = {
+        id: "f-" + Date.now(),
+        name: name,
+        parentId: targetParentFolderId
+      };
+
+      folders.push(newFolder);
+      saveToLocalStorage();
+      closeFolderModal();
+      renderTree();
+    }
+
+    // JSON保存
     function handleSaveImport() {
       const errorEl = document.getElementById('import-error');
       errorEl.classList.add('hidden');
 
       const jsonStr = document.getElementById('import-json').value.trim();
       let titleStr = document.getElementById('import-title').value.trim();
+      const folderId = document.getElementById('import-folder-select').value || null;
 
       if (!jsonStr) {
         showError('JSONコードが入力されていません。');
@@ -510,17 +669,15 @@
       try {
         const parsed = JSON.parse(jsonStr);
 
-        // 基本構造チェック
         if (!Array.isArray(parsed) || parsed.length === 0 || !parsed[0].chunks) {
-          throw new Error('LLMの出力フォーマット（JSON配列）と異なります。');
+          throw new Error('LLMのフォーマットと異なります。');
         }
 
-        if (!titleStr) {
-          titleStr = `英文テキスト ${texts.length + 1}`;
-        }
+        if (!titleStr) titleStr = `英文テキスト ${texts.length + 1}`;
 
         const newText = {
           id: "text-" + Date.now(),
+          folderId: folderId,
           title: titleStr,
           data: parsed
         };
@@ -529,10 +686,9 @@
         currentTextId = newText.id;
         saveToLocalStorage();
 
-        // フォームリセット＆読解画面に遷移
         document.getElementById('import-title').value = '';
         document.getElementById('import-json').value = '';
-        renderSidebar();
+        renderTree();
         switchView('reader');
 
       } catch (err) {
@@ -546,12 +702,41 @@
       errorEl.classList.remove('hidden');
     }
 
-    function handleDeleteText() {
-      texts = texts.filter(t => t.id !== currentTextId);
-      currentTextId = texts.length > 0 ? texts[0].id : null;
+    // 削除処理
+    function handleConfirmDelete() {
+      if (!deleteTarget) return;
+
+      if (deleteTarget.type === 'text') {
+        texts = texts.filter(t => t.id !== deleteTarget.id);
+        if (currentTextId === deleteTarget.id) {
+          currentTextId = texts.length > 0 ? texts[0].id : null;
+        }
+      } else if (deleteTarget.type === 'folder') {
+        // 対象フォルダおよびその配下のサブフォルダIDを再帰的に収集
+        const folderIdsToDelete = [deleteTarget.id];
+        function collectChildren(fid) {
+          const subs = folders.filter(f => f.parentId === fid);
+          subs.forEach(s => {
+            folderIdsToDelete.push(s.id);
+            collectChildren(s.id);
+          });
+        }
+        collectChildren(deleteTarget.id);
+
+        // 該当するフォルダおよびその配下のテキストを一括削除
+        folders = folders.filter(f => !folderIdsToDelete.includes(f.id));
+        texts = texts.filter(t => !folderIdsToDelete.includes(t.folderId));
+
+        if (!texts.find(t => t.id === currentTextId)) {
+          currentTextId = texts.length > 0 ? texts[0].id : null;
+        }
+      }
+
       saveToLocalStorage();
-      renderSidebar();
-      switchView('reader');
+      document.getElementById('modal-delete').classList.add('hidden');
+      deleteTarget = null;
+      renderTree();
+      renderReader();
     }
   </script>
 </body>
